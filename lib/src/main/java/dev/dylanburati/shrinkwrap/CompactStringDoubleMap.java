@@ -17,20 +17,19 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
-/* template!(2) /**\n * Hash map from strings to \(.primitive)s which minimizes memory overhead at large sizes. */ 
+/* template!(2) /**\n * Hash map from strings to \(.primitive)s which minimizes memory overhead at large sizes. */
 /**
  * Hash map from strings to ints which minimizes memory overhead at large sizes.
- * 
+ *
  * Internally, all keys are converted to UTF-8 when inserted, and new keys are
- * pushed into the key storage buffer. Lookups use a {@code long[]} array of 
+ * pushed into the key storage buffer. Lookups use a {@code long[]} array of
  * references to elements in the storage buffer, and a second primitive array
  * for values. All keys must be smaller than 1048576 bytes.
  *
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-/* template! public class CompactString\(.primitive | pascal)Map extends AbstractMap<String, \(.boxed)> implements Cloneable { */
-public class CompactStringIntMap extends AbstractMap<String, Integer> implements Cloneable {
+public class CompactStringDoubleMap extends AbstractMap<String, Double> implements Cloneable {
   private static final int KEY_OFFSET_BITS = 22;
   private static final int BUF_SIZE = 1 << KEY_OFFSET_BITS; // 4 MiB
   private static final int KEY_OFFSET_MASK = BUF_SIZE - 1;
@@ -49,15 +48,14 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   private static void assertBitsAreRight() {
     if (BUFNR_BITS + KEY_OFFSET_BITS + KEY_LEN_BITS + 2 != 64) {
       throw new AssertionError();
-    }   
+    }
   }
 
   private static final int DEFAULT_CAPACITY = 65536;
   private final KeyStorage keyStorage;
   // INVARIANT 1: keys.length == values.length
   private long[] keys;
-  /* template! private \(.primitive)[] values; */
-  private int[] values;
+  private double[] values;
 
   // INVARIANT 2:
   //  2A: size           == count [k | k in keys, (k & 3) == 3]
@@ -67,13 +65,11 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   private int tombstoneCount;
   private int rehashCount;
 
-  /* template! public CompactString\(.primitive | pascal)Map() { */
-  public CompactStringIntMap() {
+  public CompactStringDoubleMap() {
     this(DEFAULT_CAPACITY);
   }
 
-  /* template! public CompactString\(.primitive | pascal)Map(int initialCapacity) { */
-  public CompactStringIntMap(int initialCapacity) {
+  public CompactStringDoubleMap(int initialCapacity) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("expected non-negative initialCapacity");
     }
@@ -85,15 +81,13 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     this.keyStorage = new KeyStorage();
     // INVARIANT 1 upheld
     this.keys = new long[cap];
-    /* template! this.values = new \(.primitive)[cap]; */
-    this.values = new int[cap];
+    this.values = new double[cap];
     // INVARIANT 2 upheld, keys is all zeroes
     this.size = 0;
     this.tombstoneCount = 0;
   }
 
-  /* template! private CompactString\(.primitive | pascal)Map(final KeyStorage keyStorage, long[] keys, \(.primitive)[] values, int size) { */
-  private CompactStringIntMap(final KeyStorage keyStorage, long[] keys, int[] values, int size) {
+  private CompactStringDoubleMap(final KeyStorage keyStorage, long[] keys, double[] values, int size) {
     // clone constructor, invariants are the responsibility of clone()
     this.keyStorage = keyStorage;
     this.keys = keys;
@@ -127,26 +121,21 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     if (!(key instanceof String)) {
       return false;
     }
-    /* template! if (!(value instanceof \(.boxed))) { */
-    if (!(value instanceof Integer)) {
+    if (!(value instanceof Double)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    /* template! return idx >= 0 && this.values[idx] == (\(.boxed)) value; */
-    return idx >= 0 && this.values[idx] == (Integer) value;
+    return idx >= 0 && this.values[idx] == (Double) value;
   }
 
   @Override
   public boolean containsValue(Object value) {
-    /* template! if (!(value instanceof \(.boxed))) { */
-    if (!(value instanceof Integer)) {
+    if (!(value instanceof Double)) {
       return false;
     }
-    /* template! \(.primitive) needle = (\(.boxed)) value; */
-    int needle = (Integer) value;
+    double needle = (Double) value;
     for (int src = 0; src < this.keys.length; src++) {
-      /* template! if ((this.keys[src] & 3) == 3 && \(if .useEquals then "this.values[src].equals(needle)" else "this.values[src] == needle" end)) { */
       if ((this.keys[src] & 3) == 3 && this.values[src] == needle) {
         return true;
       }
@@ -154,9 +143,8 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     return false;
   }
 
-  /* template(2)! @Override\npublic \(.boxed) get(Object key) { */
   @Override
-  public Integer get(Object key) {
+  public Double get(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -168,15 +156,13 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     return this.values[idx];
   }
 
-  /* template(2)! @Override\npublic \(.boxed) put(String key, \(.boxed) value) { */
   @Override
-  public Integer put(String key, Integer value) {
+  public Double put(String key, Double value) {
     // System.err.println("put");
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      /* template! \(.boxed) prev = this.values[idx]; */
-      Integer prev = this.values[idx];
+      Double prev = this.values[idx];
       this.values[idx] = value;
       return prev;
     }
@@ -205,9 +191,8 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     return null;
   }
 
-  /* template(2)! @Override\npublic \(.boxed) remove(Object key) { */
   @Override
-  public Integer remove(Object key) {
+  public Double remove(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -215,8 +200,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      /* template! \(.primitive) result = this.values[idx]; */
-      int result = this.values[idx];
+      double result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return result;
@@ -230,14 +214,12 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     if (!(key instanceof String)) {
       return false;
     }
-    /* template! if (!(value instanceof \(.boxed))) { */
-    if (!(value instanceof Integer)) {
+    if (!(value instanceof Double)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    /* template! if (idx >= 0 && this.values[idx] == (\(.boxed)) value) { */
-    if (idx >= 0 && this.values[idx] == (Integer) value) {
+    if (idx >= 0 && this.values[idx] == (Double) value) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return true;
@@ -245,11 +227,9 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     return false;
   }
 
-  /* template(2)! @Override\npublic void putAll(Map<? extends String, ? extends \(.boxed)> m) { */
   @Override
-  public void putAll(Map<? extends String, ? extends Integer> m) {
-    /* template! for (Map.Entry<? extends String, ? extends \(.boxed)> e : m.entrySet()) { */
-    for (Map.Entry<? extends String, ? extends Integer> e : m.entrySet()) {
+  public void putAll(Map<? extends String, ? extends Double> m) {
+    for (Map.Entry<? extends String, ? extends Double> e : m.entrySet()) {
       this.put(e.getKey(), e.getValue());
     }
   }
@@ -267,15 +247,13 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     return new KeySet(this);
   }
 
-  /* template(2)! @Override\npublic Collection<\(.boxed)> values() { */
   @Override
-  public Collection<Integer> values() {
+  public Collection<Double> values() {
     return new Values(this);
   }
 
-  /* template(2)! @Override\npublic Set<Entry<String, \(.boxed)>> entrySet() { */
   @Override
-  public Set<Entry<String, Integer>> entrySet() {
+  public Set<Entry<String, Double>> entrySet() {
     return new EntrySet(this);
   }
 
@@ -283,8 +261,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   protected Object clone() throws CloneNotSupportedException {
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
-    /* template! \(.primitive)[] valuesClone = Arrays.copyOf(this.values, this.values.length); */
-    int[] valuesClone = Arrays.copyOf(this.values, this.values.length);
+    double[] valuesClone = Arrays.copyOf(this.values, this.values.length);
     KeyStorage newKeyStorage = new KeyStorage();
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & 3) == 3) {
@@ -294,17 +271,15 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       // INVARIANT 2b upheld: zero tombstones, keysClone[i] has low bits == 0 otherwise
     }
 
-    /* template! return new CompactString\(.primitive | pascal)Map(newKeyStorage, keysClone, valuesClone, this.size); */
-    return new CompactStringIntMap(newKeyStorage, keysClone, valuesClone, this.size);
+    return new CompactStringDoubleMap(newKeyStorage, keysClone, valuesClone, this.size);
   }
 
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
   protected static class KeySet extends AbstractSet<String> {
-    /* template(2)! private final CompactString\(.primitive | pascal)Map owner;\nprotected KeySet(final CompactString\(.primitive | pascal)Map owner) { */
-    private final CompactStringIntMap owner;
-    protected KeySet(final CompactStringIntMap owner) {
+    private final CompactStringDoubleMap owner;
+    protected KeySet(final CompactStringDoubleMap owner) {
       this.owner = owner;
     }
 
@@ -340,11 +315,9 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class Values extends AbstractCollection<\(.boxed)> { */
-  protected static class Values extends AbstractCollection<Integer> {
-    /* template(2)! private final CompactString\(.primitive | pascal)Map owner;\nprotected Values(final CompactString\(.primitive | pascal)Map owner) { */
-    private final CompactStringIntMap owner;
-    protected Values(final CompactStringIntMap owner) {
+  protected static class Values extends AbstractCollection<Double> {
+    private final CompactStringDoubleMap owner;
+    protected Values(final CompactStringDoubleMap owner) {
       this.owner = owner;
     }
 
@@ -354,16 +327,14 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     public final void clear() {
       owner.clear();
     }
-    /* template! public final Iterator<\(.boxed)> iterator() { */
-    public final Iterator<Integer> iterator() {
+    public final Iterator<Double> iterator() {
       return new ValueIterator(owner);
     }
     public final boolean contains(Object o) {
       return owner.containsValue(o);
     }
 
-    /* template! public final void forEach(Consumer<? super \(.boxed)> action) { */
-    public final void forEach(Consumer<? super Integer> action) {
+    public final void forEach(Consumer<? super Double> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -379,16 +350,13 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class Node implements Map.Entry<String, \(.boxed)> { */
-  protected static class Node implements Map.Entry<String, Integer> {
-    /* template! private final CompactString\(.primitive | pascal)Map owner; */
-    private final CompactStringIntMap owner;
+  protected static class Node implements Map.Entry<String, Double> {
+    private final CompactStringDoubleMap owner;
     private final long keyRef;
     private int index;
     private int rehashCount;
 
-    /* template! protected Node(CompactString\(.primitive | pascal)Map owner, int index) { */
-    protected Node(CompactStringIntMap owner, int index) {
+    protected Node(CompactStringDoubleMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -412,18 +380,15 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       return this.owner.keyStorage.load(this.owner.keys[this.getIndex()]);
     }
 
-    /* template(2)! @Override\npublic \(.boxed) getValue() { */
     @Override
-    public Integer getValue() {
+    public Double getValue() {
       return this.owner.values[this.getIndex()];
     }
 
-    /* template(2)! @Override\npublic \(.boxed) setValue(\(.boxed) value) { */
     @Override
-    public Integer setValue(Integer value) {
+    public Double setValue(Double value) {
       int index = this.getIndex();
-      /* template! \(.boxed) prev = this.owner.values[index]; */
-      Integer prev = this.owner.values[index];
+      Double prev = this.owner.values[index];
       this.owner.values[index] = value;
       return prev;
     }
@@ -443,11 +408,9 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class EntrySet extends AbstractSet<Map.Entry<String, \(.boxed)>> { */
-  protected static class EntrySet extends AbstractSet<Map.Entry<String, Integer>> {
-    /* template(2)! private final CompactString\(.primitive | pascal)Map owner;\nprotected EntrySet(final CompactString\(.primitive | pascal)Map owner) { */
-    private final CompactStringIntMap owner;
-    protected EntrySet(final CompactStringIntMap owner) {
+  protected static class EntrySet extends AbstractSet<Map.Entry<String, Double>> {
+    private final CompactStringDoubleMap owner;
+    protected EntrySet(final CompactStringDoubleMap owner) {
       this.owner = owner;
     }
 
@@ -457,8 +420,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     public final void clear() {
       owner.clear();
     }
-    /* template! public final Iterator<Map.Entry<String, \(.boxed)>> iterator() { */
-    public final Iterator<Map.Entry<String, Integer>> iterator() {
+    public final Iterator<Map.Entry<String, Double>> iterator() {
       return new EntryIterator(owner);
     }
 
@@ -474,8 +436,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       }
       return false;
     }
-    /* template! public final void forEach(Consumer<? super Map.Entry<String, \(.boxed)>> action) { */
-    public final void forEach(Consumer<? super Map.Entry<String, Integer>> action) {
+    public final void forEach(Consumer<? super Map.Entry<String, Double>> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -492,14 +453,12 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   }
 
   protected static abstract class HashIterator {
-    /* template! protected final CompactString\(.primitive | pascal)Map owner; */
-    protected final CompactStringIntMap owner;
+    protected final CompactStringDoubleMap owner;
     private final int rehashCount;
     private int index;
     private int nextIndex;
 
-    /* template! protected HashIterator(final CompactString\(.primitive | pascal)Map owner) { */
-    protected HashIterator(final CompactStringIntMap owner) {
+    protected HashIterator(final CompactStringDoubleMap owner) {
       this.owner = owner;
       this.rehashCount = owner.rehashCount;
       this.index = -1;
@@ -543,8 +502,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   }
 
   protected static class KeyIterator extends HashIterator implements Iterator<String> {
-    /* template! protected KeyIterator(final CompactString\(.primitive | pascal)Map owner) { */
-    protected KeyIterator(final CompactStringIntMap owner) {
+    protected KeyIterator(final CompactStringDoubleMap owner) {
       super(owner);
     }
     public final String next() {
@@ -553,27 +511,21 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class ValueIterator extends HashIterator implements Iterator<\(.boxed)> { */
-  protected static class ValueIterator extends HashIterator implements Iterator<Integer> {
-    /* template! protected ValueIterator(final CompactString\(.primitive | pascal)Map owner) { */
-    protected ValueIterator(final CompactStringIntMap owner) {
+  protected static class ValueIterator extends HashIterator implements Iterator<Double> {
+    protected ValueIterator(final CompactStringDoubleMap owner) {
       super(owner);
     }
-    /* template! public final \(.boxed) next() { */
-    public final Integer next() {
+    public final Double next() {
       int idx = this.advance();
       return owner.values[idx];
     }
   }
 
-  /* template! protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, \(.boxed)>> { */
-  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Integer>> {
-    /* template! protected EntryIterator(final CompactString\(.primitive | pascal)Map owner) { */
-    protected EntryIterator(final CompactStringIntMap owner) {
+  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Double>> {
+    protected EntryIterator(final CompactStringDoubleMap owner) {
       super(owner);
     }
-    /* template! public final Map.Entry<String, \(.boxed)> next() { */
-    public final Map.Entry<String, Integer> next() {
+    public final Map.Entry<String, Double> next() {
       int idx = this.advance();
       return new Node(owner, idx);
     }
@@ -608,7 +560,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       this.buffers = new ArrayList<>();
       this.buffers.add(ByteBuffer.allocate(BUF_SIZE));
     }
-    
+
 	// bits[63:23] = offset
     //     [22:2]  = length
     //     [2:0]   = tombstone flag and present/empty flag
@@ -694,15 +646,15 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   }
 
   /**
-   * Attempts to find index whose stored key equals the given one, using a quadratic probe starting from 
+   * Attempts to find index whose stored key equals the given one, using a quadratic probe starting from
    * hash(keyContent).
    *
    * Returns:
    * <ul>
    * <li> {@code index} when key found
    * <li> {@code -index - 1} when an empty slot is found; the index refers to the first tombstone found
-   *   if any, otherwise 
-   * 
+   *   if any, otherwise
+   *
    */
   private int readIndex(byte[] keyContent) {
     int h = hashBytes(keyContent) % this.keys.length;
@@ -754,8 +706,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   private void setCapacity(int cap) {
     // System.err.format("%s setCapacity(%d) from (cap=%d,size=%d,dead=%d)\n", this, cap, this.keys.length, this.size, this.tombstoneCount);
     long[] nextKeys = new long[cap];
-    /* template! \(.primitive)[] nextValues = new \(.primitive)[cap]; */
-    int[] nextValues = new int[cap];
+    double[] nextValues = new double[cap];
     for (int src = 0; src < this.keys.length; src++) {
       if ((this.keys[src] & 3) == 3) {
         // INVARIANT 2a upheld: this condition is true for `size` iterations, and each time
