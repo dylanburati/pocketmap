@@ -12,7 +12,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /* template(2)! /**\n * Hash map from strings to \(.val.t)s which minimizes memory overhead at large sizes. */ 
 /**
@@ -140,13 +142,19 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   /* template(2)! @Override\npublic \(.val.view) get(Object key) { */
   @Override
   public Integer get(Object key) {
+    return this.getOrDefault(key, null);
+  }
+
+  /* template(2)! @Override\npublic \(.val.view) getOrDefault(Object key, \(.val.view) defaultValue) { */
+  @Override
+  public Integer getOrDefault(Object key, Integer defaultValue) {
     if (!(key instanceof String)) {
-      return null;
+      return defaultValue;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx < 0) {
-      return null;
+      return defaultValue;
     }
     /* template! return \([.val.object, "this.values[idx]"] | castUnsafe); */
     return this.values[idx];
@@ -155,7 +163,34 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   /* template(2)! @Override\npublic \(.val.view) put(String key, \(.val.view) value) { */
   @Override
   public Integer put(String key, Integer value) {
-    // System.err.println("put");
+    return this.putImpl(key, value, true);
+  }
+
+  /* template(2)! @Override\npublic \(.val.view) putIfAbsent(String key, \(.val.view) value) { */
+  @Override
+  public Integer putIfAbsent(String key, Integer value) {
+    return this.putImpl(key, value, false);
+  }
+
+  /* template! private \(.val.view) putImpl(String key, \(.val.view) value, boolean shouldReplace) { */
+  private Integer putImpl(String key, Integer value, boolean shouldReplace) {
+    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
+    int idx = this.readIndex(keyContent);
+    if (idx >= 0) {
+      /* template! \(.val.view) prev = \([.val.object, "this.values[idx]"] | castUnsafe); */
+      Integer prev = this.values[idx];
+      if (shouldReplace) {
+        this.values[idx] = value;
+      }
+      return prev;
+    }
+    this.insertByIndex(-idx - 1, keyContent, value);
+    return null;
+  }
+
+  /* template(2)! @Override\npublic \(.val.view) replace(String key, \(.val.view) value) { */
+  @Override
+  public Integer replace(String key, Integer value) {
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
@@ -164,29 +199,20 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
       this.values[idx] = value;
       return prev;
     }
-    idx = -idx - 1;
-    boolean isTombstone = (this.keys[idx] & 1) == 1;
-
-    int cap = this.keys.length;
-    if (!isTombstone && this.size + this.tombstoneCount + 1 > cap * 7 / 8) {
-      if (this.size + 1 > cap * 3 / 4) {
-        this.setCapacity(cap << 1);
-      } else {
-        this.setCapacity(cap);
-      }
-      idx = this.insertionIndex(keyContent);
-      isTombstone = false;  // no tombstones following resize
-    }
-    long keyRef = this.keyStorage.store(keyContent);
-    this.keys[idx] = keyRef;
-    this.values[idx] = value;
-    // INVARIANT 2 upheld: low bits of keys[idx] were not 3 and now they are
-    // isTombstone == true IFF low bits were 1
-    this.size++;
-    if (isTombstone) {
-      this.tombstoneCount--;
-    }
     return null;
+  }
+
+  /* template(2)! @Override\npublic boolean replace(String key, \(.val.view) oldValue, \(.val.view) newValue) { */
+  @Override
+  public boolean replace(String key, Integer oldValue, Integer newValue) {
+    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
+    int idx = this.readIndex(keyContent);
+    /* template! if (idx >= 0 && \([.val.object, "this.values[idx]", "oldValue", .val.view] | equals)) { */
+    if (idx >= 0 && this.values[idx] == (Integer) oldValue) {
+      this.values[idx] = newValue;
+      return true;
+    }
+    return false;
   }
 
   /* template(2)! @Override\npublic \(.val.view) remove(Object key) { */
@@ -195,7 +221,6 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     if (!(key instanceof String)) {
       return null;
     }
-    // System.err.println("remove");
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
@@ -208,9 +233,9 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     return null;
   }
 
-  private boolean removeEntry(Map.Entry<?, ?> e) {
-    Object key = e.getKey();
-    Object value = e.getValue();
+  /* template(2)! @Override\npublic boolean remove(Object key, Object value) { */
+  @Override
+  public boolean remove(Object key, Object value) {
     if (!(key instanceof String)) {
       return false;
     }
@@ -229,12 +254,95 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     return false;
   }
 
+  /* template(2)! @Override\npublic \(.val.view) computeIfAbsent(String key, Function<? super String, ? extends \(.val.view)> mappingFunction) { */
+  @Override
+  public Integer computeIfAbsent(String key, Function<? super String, ? extends Integer> mappingFunction) {
+    return this.computeImpl(key, (k, _v) -> mappingFunction.apply(k), true, false);
+  }
+
+  /* template(2)! @Override\npublic \(.val.view) computeIfPresent(String key, BiFunction<? super String, ? super \(.val.view), ? extends \(.val.view)> remappingFunction) { */
+  @Override
+  public Integer computeIfPresent(String key, BiFunction<? super String, ? super Integer, ? extends Integer> remappingFunction) {
+    return this.computeImpl(key, remappingFunction, false, true);
+  }
+
+  /* template(2)! @Override\npublic \(.val.view) compute(String key, BiFunction<? super String, ? super \(.val.view), ? extends \(.val.view)> remappingFunction) { */
+  @Override
+  public Integer compute(String key, BiFunction<? super String, ? super Integer, ? extends Integer> remappingFunction) {
+    return this.computeImpl(key, remappingFunction, true, true);
+  }
+
+  /* template! private \(.val.view) computeImpl(String key, BiFunction<? super String, ? super \(.val.view), ? extends \(.val.view)> remappingFunction, boolean shouldInsert, boolean shouldReplace) { */
+  private Integer computeImpl(String key, BiFunction<? super String, ? super Integer, ? extends Integer> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
+    Objects.requireNonNull(remappingFunction);
+    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
+    int idx = this.readIndex(keyContent);
+    if (idx >= 0) {
+      /* template! \(.val.view) result = null; */
+      Integer result = null;
+      if (shouldReplace) {
+        /* template! result = remappingFunction.apply(key, \([.val.object, "this.values[idx]"] | castUnsafe)); */
+        result = remappingFunction.apply(key, this.values[idx]);
+        if (result != null) {
+          this.values[idx] = result;
+        } else {
+          this.removeByIndex(idx);
+        }
+      }
+      return result;
+    }
+    if (!shouldInsert) {
+      return null;
+    }
+    /* template! \(.val.view) value = remappingFunction.apply(key, null); */
+    Integer value = remappingFunction.apply(key, null);
+    if (value == null) {
+      return null;
+    }
+    this.insertByIndex(-idx - 1, keyContent, value);
+    return value;
+  }
+
+  /* template(2)! @Override\npublic \(.val.view) merge(String key, \(.val.view) value, BiFunction<? super \(.val.view), ? super \(.val.view), ? extends \(.val.view)> remappingFunction) { */
+  @Override
+  public Integer merge(String key, Integer value, BiFunction<? super Integer, ? super Integer, ? extends Integer> remappingFunction) {
+    Objects.requireNonNull(remappingFunction);
+    Objects.requireNonNull(value);
+    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
+    int idx = this.readIndex(keyContent);
+    if (idx >= 0) {
+      /* template! \(.val.view) result = remappingFunction.apply(\([.val.object, "this.values[idx]"] | castUnsafe), value); */
+      Integer result = remappingFunction.apply(this.values[idx], value);
+      if (result != null) {
+        this.values[idx] = result;
+      } else {
+        this.removeByIndex(idx);
+      }
+      return result;
+    }
+    this.insertByIndex(-idx - 1, keyContent, value);
+    return value;
+  }
+
   /* template(2)! @Override\npublic void putAll(Map<? extends String, ? extends \(.val.view)> m) { */
   @Override
   public void putAll(Map<? extends String, ? extends Integer> m) {
     /* template! for (Map.Entry<? extends String, ? extends \(.val.view)> e : m.entrySet()) { */
     for (Map.Entry<? extends String, ? extends Integer> e : m.entrySet()) {
       this.put(e.getKey(), e.getValue());
+    }
+  }
+
+  /* template(2)! @Override\npublic void replaceAll(BiFunction<? super String, ? super \(.val.view), ? extends \(.val.view)> function) { */
+  @Override
+  public void replaceAll(BiFunction<? super String, ? super Integer, ? extends Integer> function) {
+    Objects.requireNonNull(function);
+    for (int i = 0; i < this.keys.length; i++) {
+      if ((this.keys[i] & 3) == 3) {
+        String k = this.keyStorage.loadAsString(this.keys[i], StandardCharsets.UTF_8);
+        /* template! this.values[i] = function.apply(k, \([.val.object, "this.values[i]"] | castUnsafe)); */
+        this.values[i] = function.apply(k, this.values[i]);
+      }
     }
   }
 
@@ -462,7 +570,8 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     }
     public final boolean remove(Object o) {
       if (o instanceof Map.Entry<?, ?>) {
-        return owner.removeEntry((Map.Entry<?, ?>) o);
+        Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+        return owner.remove(e.getKey(), e.getValue());
       }
       return false;
     }
@@ -651,6 +760,28 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     return -1;
   }
 
+  /**
+   * INVARIANT 2 upheld WHEN this.keys[idx] has low bits != 3 prior to calling 
+   *
+   * {@code idx} is not guaranteed to be the real insertion index, as it is recalculated if 
+   * we resize or purge tombstones.
+   */
+  /* template! private void insertByIndex(int idx, byte[] keyContent, \(.val.t) value) { */
+  private void insertByIndex(int idx, byte[] keyContent, int value) {
+    boolean isTombstone = (this.keys[idx] & 1) == 1;
+    if (!isTombstone && this.maybeSetCapacity()) {
+      idx = this.insertionIndex(keyContent);
+      isTombstone = false;  // no tombstones following resize
+    }
+    long keyRef = this.keyStorage.store(keyContent);
+    this.keys[idx] = keyRef;
+    this.values[idx] = value;
+    this.size++;
+    if (isTombstone) {
+      this.tombstoneCount--;
+    }
+  }
+
   /** INVARIANT 2 upheld WHEN this.keys[idx] has low bits == 3 prior to calling */
   private void removeByIndex(int idx) {
     // flip tombstone flag bit
@@ -659,6 +790,20 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     // this.values[idx] = null;
     this.size--;
     this.tombstoneCount++;
+  }
+
+  // Called when an insertion to an empty slot is about to happen, returns true if rehashed
+  private boolean maybeSetCapacity() {
+    int cap = this.keys.length;
+    if (this.size + this.tombstoneCount + 1 > cap * 7 / 8) {
+      if (this.size + 1 > cap * 3 / 4) {
+        this.setCapacity(cap << 1);
+      } else {
+        this.setCapacity(cap);
+      }
+      return true;
+    }
+    return false;
   }
 
   private void setCapacity(int cap) {

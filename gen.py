@@ -1,3 +1,4 @@
+import contextlib
 import itertools
 import json
 import subprocess
@@ -86,26 +87,28 @@ template_rgx = re.compile(r"^([ ]*)/\* template(\([0-9]+\))?! (.*) \*/")
 template_all_rgx = re.compile(r"^[ ]*/\* template_all! (.*) \*/")
 
 
-def fill_templates(config, lines, keep=False):
-    result = []
+def fill_templates(configs, lines):
+    result = [[] for _ in configs]
     i = 0
-    config_b = json.dumps(config).encode("utf-8")
-    unconditional_replaces = {}
+    config_b = b"".join((json.dumps(c).encode("utf-8") + b"\n") for c in configs)
+    unconditional_replaces = [{} for _ in configs]
     while i < len(lines):
         template_all_match = template_all_rgx.match(lines[i])
         if template_all_match:
             srcs = json.loads(template_all_match.group(1))
-            if dests := config.get("example_values"):
-                for src, dst in zip(srcs, itertools.cycle(dests)):
-                    unconditional_replaces[str(src)] = dst
-            if keep:
-                result.append(lines[i])
+            for j in range(len(result)):
+                if dests := configs[j].get("example_values"):
+                    for src, dst in zip(srcs, itertools.cycle(dests)):
+                        unconditional_replaces[j][str(src)] = dst
+                if configs[j].get("keep"):
+                    result[j].append(lines[i])
             i += 1
             continue
-        to_add = []
+        to_add = [[] for _ in configs]
         template_match = template_rgx.match(lines[i])
         if not template_match:
-            to_add.append(lines[i])
+            for j in range(len(result)):
+                to_add[j].append(lines[i])
             i += 1
         else:
             replace_count = 1
@@ -118,7 +121,7 @@ def fill_templates(config, lines, keep=False):
                 f'"{template_match.group(3)}"'
             )
             proc = subprocess.Popen(
-                ["jq", "-r", jq_script],
+                ["jq", "-c", jq_script],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -128,54 +131,58 @@ def fill_templates(config, lines, keep=False):
                 print(f"template error on line {i+1}", file=sys.stderr)
                 sys.stderr.buffer.write(err_bytes)
                 break
-            if keep:
-                result.append(lines[i])
-            to_add.extend(
-                (indent + e) for e in out_bytes.decode("utf-8").split("\n") if e != ""
-            )
+            for j, render in enumerate(map(json.loads, map(bytes.rstrip, out_bytes.splitlines()))):
+                to_add[j].extend(
+                    (indent + e) for e in render.split("\n") if e != ""
+                )
+            for j in range(len(result)):
+                if configs[j].get("keep"):
+                    result[j].append(lines[i])
             i += 1 + replace_count
 
-        for line in to_add:
-            replace_indices = []
-            for src, dst in unconditional_replaces.items():
-                line_idx = 0
-                while line_idx < len(dst):
-                    nxt = line.find(src, line_idx)
-                    if nxt == -1:
-                        break
-                    replace_indices.append((nxt, nxt + len(src), dst))
-                    line_idx = nxt + len(src)
-            replace_indices.sort(key=lambda e: -e[0])
-            for start, end, dst in replace_indices:
-                line = line[:start] + dst + line[end:]
-            result.append(line)
+        for j in range(len(to_add)):
+            for line in to_add[j]:
+                replace_indices = []
+                for src, dst in unconditional_replaces[j].items():
+                    line_idx = 0
+                    while line_idx < len(line):
+                        nxt = line.find(src, line_idx)
+                        if nxt == -1:
+                            break
+                        replace_indices.append((nxt, nxt + len(src), dst))
+                        line_idx = nxt + len(src)
+                replace_indices.sort(key=lambda e: -e[0])
+                for start, end, dst in replace_indices:
+                    line = line[:start] + dst + line[end:]
+                result[j].append(line)
     return result
 
 
 int_config = {
     "val": {"t": "int", "view": "Integer", "disp": "Int"},
     "intLambda": "(v) -> v",
+    "keep": True,
 }
-src_sanity = fill_templates(int_config, src_lines, keep=True)
+src_sanity, *src_outs = fill_templates([int_config, *configs, *src_only_configs], src_lines)
 if src_sanity != src_lines:
     import pdb
 
     pdb.set_trace()
     sys.exit(1)
-test_sanity = fill_templates(int_config, test_lines, keep=True)
+test_sanity, *test_outs = fill_templates([int_config, *configs, *test_only_configs], test_lines)
 if test_sanity != test_lines:
     import pdb
 
     pdb.set_trace()
     sys.exit(1)
 
-for c in configs + src_only_configs:
+for lst, c in zip(src_outs, configs + src_only_configs):
     src_file = f"{c['val']['disp']}PocketMap.java"
     with open(f"{base_src_path}/{src_file}", "w", encoding="utf-8") as fp:
-        fp.write("\n".join(fill_templates(c, src_lines)))
+        fp.write("\n".join(lst))
         fp.write("\n")
-for c in configs + test_only_configs:
+for lst, c in zip(test_outs, configs + test_only_configs):
     test_file = f"{c['val']['disp']}PocketMapTest.java"
     with open(f"{base_test_path}/{test_file}", "w", encoding="utf-8") as fp:
-        fp.write("\n".join(fill_templates(c, test_lines)))
+        fp.write("\n".join(lst))
         fp.write("\n")
