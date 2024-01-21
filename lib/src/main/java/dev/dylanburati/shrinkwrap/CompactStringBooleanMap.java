@@ -1,16 +1,13 @@
 package dev.dylanburati.shrinkwrap;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -30,28 +27,8 @@ import java.util.function.Consumer;
  * To do this manually, clone the map.
  */
 public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implements Cloneable {
-  private static final int KEY_OFFSET_BITS = 22;
-  private static final int BUF_SIZE = 1 << KEY_OFFSET_BITS; // 4 MiB
-  private static final int KEY_OFFSET_MASK = BUF_SIZE - 1;
-
-  private static final int KEY_LEN_BITS = 20;
-  private static final int KEY_LEN_LIMIT = 1 << KEY_LEN_BITS;  // 1 MiB
-  private static final int KEY_LEN_MASK = KEY_LEN_LIMIT - 1;
-
-  private static final int BUFNR_BITS = 20;  // total = 4 TiB
-  private static final int BUFNR_LIMIT = 1 << BUFNR_BITS;
-  static {
-    assertBitsAreRight();
-  }
-
-  @SuppressWarnings("all")
-  private static void assertBitsAreRight() {
-    if (BUFNR_BITS + KEY_OFFSET_BITS + KEY_LEN_BITS + 2 != 64) {
-      throw new AssertionError();
-    }
-  }
-
   private static final int DEFAULT_CAPACITY = 65536;
+  private final Hasher hasher;
   private final KeyStorage keyStorage;
   // INVARIANT 1: keys.length == values.length
   private long[] keys;
@@ -70,6 +47,10 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   public CompactStringBooleanMap(int initialCapacity) {
+    this(initialCapacity, DefaultHasher.instance());
+  }
+
+  public CompactStringBooleanMap(int initialCapacity, final Hasher hasher) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("expected non-negative initialCapacity");
     }
@@ -78,7 +59,8 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
       // next power of two >= initialCapacity
       cap = 1 << (32 - Integer.numberOfLeadingZeros(initialCapacity - 1));
     }
-    this.keyStorage = new KeyStorage();
+    this.hasher = Objects.requireNonNull(hasher);
+    this.keyStorage = new KeyStorage(hasher);
     // INVARIANT 1 upheld
     this.keys = new long[cap];
     this.values = new boolean[cap];
@@ -89,6 +71,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
 
   private CompactStringBooleanMap(final KeyStorage keyStorage, long[] keys, boolean[] values, int size) {
     // clone constructor, invariants are the responsibility of clone()
+    this.hasher = keyStorage.hasher;
     this.keyStorage = keyStorage;
     this.keys = keys;
     this.values = values;
@@ -262,7 +245,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
     boolean[] valuesClone = Arrays.copyOf(this.values, this.values.length);
-    KeyStorage newKeyStorage = new KeyStorage();
+    KeyStorage newKeyStorage = new KeyStorage(this.hasher);
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & 3) == 3) {
         // INVARIANT 2a upheld: equal size, keysClone[i] has low bits == 3 IFF keys[i] does
@@ -306,7 +289,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
         if ((owner.keys[src] & 3) == 3) {
-          action.accept(owner.keyStorage.load(owner.keys[src]));
+          action.accept(owner.keyStorage.loadAsString(owner.keys[src], StandardCharsets.UTF_8));
         }
       }
       // if (modCount != mc) {
@@ -377,7 +360,8 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
 
     @Override
     public String getKey() {
-      return this.owner.keyStorage.load(this.owner.keys[this.getIndex()]);
+      long keyRef = this.owner.keys[this.getIndex()];
+      return this.owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
     }
 
     @Override
@@ -507,7 +491,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     }
     public final String next() {
       int idx = this.advance();
-      return owner.keyStorage.load(owner.keys[idx]);
+      return owner.keyStorage.loadAsString(owner.keys[idx], StandardCharsets.UTF_8);
     }
   }
 
@@ -534,98 +518,9 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   // end section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  static int hashBytes(byte[] keyContent) {
-    int h = 1;
-    for (int offset = keyContent.length - 1; offset >= 0; offset--) {
-      h = 31 * h + (int)keyContent[offset];
-    }
-    // ensure positive number for convenience with modulo operator
-    return h & 0x7fff_ffff;
-  }
-
-  static int hashBuffer(ByteBuffer buf, int position, int length) {
-    int h = 1;
-    byte[] arr = buf.array();
-    for (int offset = position + length - 1; offset >= position; offset--) {
-      h = 31 * h + (int)arr[offset];
-    }
-    // ensure positive number for convenience with modulo operator
-    return h & 0x7fff_ffff;
-  }
-
-  private static class KeyStorage {
-    private final List<ByteBuffer> buffers;
-
-    private KeyStorage() {
-      this.buffers = new ArrayList<>();
-      this.buffers.add(ByteBuffer.allocate(BUF_SIZE));
-    }
-
-	// bits[63:23] = offset
-    //     [22:2]  = length
-    //     [2:0]   = tombstone flag and present/empty flag
-    private long store(byte[] keyContent) {
-      return this.store(keyContent, 0, keyContent.length);
-    }
-
-    private long store(byte[] src, int srcOffset, int srcLength) {
-      if (srcLength >= KEY_LEN_LIMIT) {
-        throw new IllegalArgumentException("Key too long");
-      }
-      int which = this.buffers.size() - 1;
-      ByteBuffer store = this.buffers.get(which);
-      if (store.remaining() < srcLength) {
-        which += 1;
-        assert which < BUFNR_LIMIT;
-        store = ByteBuffer.allocate(BUF_SIZE);
-        this.buffers.add(store);
-      }
-      int offset = store.position();
-      store.put(src, srcOffset, srcLength);
-      return ((long) which << (KEY_OFFSET_BITS + KEY_LEN_BITS + 2))
-        | ((long) offset << (KEY_LEN_BITS + 2))
-        | ((long) srcLength << 2)
-        | 3;
-    }
-
-    private String load(long keyRef) {
-      int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-      int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-      int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
-      byte[] bufContent = this.buffers.get(which).array();
-      return new String(bufContent, offset, length, StandardCharsets.UTF_8);
-    }
-
-    private int hashAt(long keyRef) {
-      int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-      int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-      int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
-      return hashBuffer(this.buffers.get(which), offset, length);
-    }
-
-    private boolean equalsAt(long keyRef, byte[] other) {
-      int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-      int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-      int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
-      if (other.length != length) {
-        return false;
-      }
-      byte[] bufContent = this.buffers.get(which).array();
-      return Arrays.equals(bufContent, offset, offset + length, other, 0, length);
-    }
-
-    public long copyFrom(KeyStorage src, long keyRef) {
-      int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-      int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-      int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
-      byte[] bufContent = src.buffers.get(which).array();
-      return this.store(bufContent, offset, length);
-	}
-  }
-
   /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
   private int insertionIndex(byte[] keyContent) {
-    int h = hashBytes(keyContent) % this.keys.length;
+    int h = (this.hasher.hashBytes(keyContent) & 0x7fff_ffff) % this.keys.length;
     int distance = 1;
     while ((keys[h] & 3) == 3) {
       h = (h + distance) % this.keys.length;
@@ -636,7 +531,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
 
   /** Index of given key array's first empty/tombstone slot in quadratic probe starting from hashAt(keyRef) */
   private int reinsertionIndex(long[] keys, long keyRef) {
-    int h = this.keyStorage.hashAt(keyRef) % keys.length;
+    int h = (this.keyStorage.hashAt(keyRef) & 0x7fff_ffff) % keys.length;
     int distance = 1;
     while ((keys[h] & 3) == 3) {
       h = (h + distance) % keys.length;
@@ -657,7 +552,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
    *
    */
   private int readIndex(byte[] keyContent) {
-    int h = hashBytes(keyContent) % this.keys.length;
+    int h = (this.hasher.hashBytes(keyContent) & 0x7fff_ffff) % this.keys.length;
     int distance = 1;
     int firstTombstone = -1;
     while ((this.keys[h] & 1) == 1) {
@@ -683,7 +578,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
 
   // used by Node to refresh its known index on the first access after a rehash
   private int rereadIndex(long keyRef) {
-    int h = this.keyStorage.hashAt(keyRef) % keys.length;
+    int h = (this.keyStorage.hashAt(keyRef) & 0x7fff_ffff) % keys.length;
     int distance = 1;
     while ((keys[h] & 3) == 3) {
       if (keys[h] == keyRef) {
