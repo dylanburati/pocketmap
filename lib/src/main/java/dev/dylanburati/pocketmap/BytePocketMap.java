@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * Hash map from strings to longs which minimizes memory overhead at large sizes.
+ * Hash map from strings to bytes which minimizes memory overhead at large sizes.
  *
  * Internally, all keys are converted to UTF-8 when inserted, and new keys are
  * pushed into the key storage buffer. Lookups use a {@code long[]} array of
@@ -25,13 +25,13 @@ import java.util.function.Consumer;
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-public class CompactStringLongMap extends AbstractMap<String, Long> implements Cloneable {
+public class BytePocketMap extends AbstractMap<String, Byte> implements Cloneable {
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
   // INVARIANT 1: keys.length == values.length
   private long[] keys;
-  private long[] values;
+  private byte[] values;
 
   // INVARIANT 2:
   //  2A: size           == count [k | k in keys, (k & 3) == 3]
@@ -41,15 +41,15 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   private int tombstoneCount;
   private int rehashCount;
 
-  public CompactStringLongMap() {
+  public BytePocketMap() {
     this(DEFAULT_CAPACITY);
   }
 
-  public CompactStringLongMap(int initialCapacity) {
+  public BytePocketMap(int initialCapacity) {
     this(initialCapacity, DefaultHasher.instance());
   }
 
-  public CompactStringLongMap(int initialCapacity, final Hasher hasher) {
+  public BytePocketMap(int initialCapacity, final Hasher hasher) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("expected non-negative initialCapacity");
     }
@@ -62,13 +62,13 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     this.keyStorage = new KeyStorage(hasher);
     // INVARIANT 1 upheld
     this.keys = new long[cap];
-    this.values = new long[cap];
+    this.values = new byte[cap];
     // INVARIANT 2 upheld, keys is all zeroes
     this.size = 0;
     this.tombstoneCount = 0;
   }
 
-  private CompactStringLongMap(final KeyStorage keyStorage, long[] keys, long[] values, int size) {
+  private BytePocketMap(final KeyStorage keyStorage, long[] keys, byte[] values, int size) {
     // clone constructor, invariants are the responsibility of clone()
     this.hasher = keyStorage.hasher;
     this.keyStorage = keyStorage;
@@ -103,21 +103,21 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     if (!(key instanceof String)) {
       return false;
     }
-    if (!(value instanceof Long)) {
+    if (!(value instanceof Byte)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    return idx >= 0 && this.values[idx] == (Long) value;
+    return idx >= 0 && this.values[idx] == (Byte) value;
   }
 
   @Override
   public boolean containsValue(Object value) {
-    if (!(value instanceof Long)) {
+    if (!(value instanceof Byte)) {
       return false;
     }
     for (int src = 0; src < this.keys.length; src++) {
-      if ((this.keys[src] & 3) == 3 && this.values[src] == (Long) value) {
+      if ((this.keys[src] & 3) == 3 && this.values[src] == (Byte) value) {
         return true;
       }
     }
@@ -125,7 +125,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   }
 
   @Override
-  public Long get(Object key) {
+  public Byte get(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -138,12 +138,12 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   }
 
   @Override
-  public Long put(String key, Long value) {
+  public Byte put(String key, Byte value) {
     // System.err.println("put");
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      Long prev = this.values[idx];
+      Byte prev = this.values[idx];
       this.values[idx] = value;
       return prev;
     }
@@ -173,7 +173,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   }
 
   @Override
-  public Long remove(Object key) {
+  public Byte remove(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -181,7 +181,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      Long result = this.values[idx];
+      Byte result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return result;
@@ -195,12 +195,12 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     if (!(key instanceof String)) {
       return false;
     }
-    if (!(value instanceof Long)) {
+    if (!(value instanceof Byte)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    if (idx >= 0 && this.values[idx] == (Long) value) {
+    if (idx >= 0 && this.values[idx] == (Byte) value) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return true;
@@ -209,8 +209,8 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   }
 
   @Override
-  public void putAll(Map<? extends String, ? extends Long> m) {
-    for (Map.Entry<? extends String, ? extends Long> e : m.entrySet()) {
+  public void putAll(Map<? extends String, ? extends Byte> m) {
+    for (Map.Entry<? extends String, ? extends Byte> e : m.entrySet()) {
       this.put(e.getKey(), e.getValue());
     }
   }
@@ -229,12 +229,12 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   }
 
   @Override
-  public Collection<Long> values() {
+  public Collection<Byte> values() {
     return new Values(this);
   }
 
   @Override
-  public Set<Entry<String, Long>> entrySet() {
+  public Set<Entry<String, Byte>> entrySet() {
     return new EntrySet(this);
   }
 
@@ -242,7 +242,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   protected Object clone() throws CloneNotSupportedException {
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
-    long[] valuesClone = Arrays.copyOf(this.values, this.values.length);
+    byte[] valuesClone = Arrays.copyOf(this.values, this.values.length);
     KeyStorage newKeyStorage = new KeyStorage(this.hasher);
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & 3) == 3) {
@@ -252,15 +252,15 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
       // INVARIANT 2b upheld: zero tombstones, keysClone[i] has low bits == 0 otherwise
     }
 
-    return new CompactStringLongMap(newKeyStorage, keysClone, valuesClone, this.size);
+    return new BytePocketMap(newKeyStorage, keysClone, valuesClone, this.size);
   }
 
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
   protected static class KeySet extends AbstractSet<String> {
-    private final CompactStringLongMap owner;
-    protected KeySet(final CompactStringLongMap owner) {
+    private final BytePocketMap owner;
+    protected KeySet(final BytePocketMap owner) {
       this.owner = owner;
     }
 
@@ -296,9 +296,9 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     }
   }
 
-  protected static class Values extends AbstractCollection<Long> {
-    private final CompactStringLongMap owner;
-    protected Values(final CompactStringLongMap owner) {
+  protected static class Values extends AbstractCollection<Byte> {
+    private final BytePocketMap owner;
+    protected Values(final BytePocketMap owner) {
       this.owner = owner;
     }
 
@@ -308,14 +308,14 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Long> iterator() {
+    public final Iterator<Byte> iterator() {
       return new ValueIterator(owner);
     }
     public final boolean contains(Object o) {
       return owner.containsValue(o);
     }
 
-    public final void forEach(Consumer<? super Long> action) {
+    public final void forEach(Consumer<? super Byte> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -331,13 +331,13 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     }
   }
 
-  protected static class Node implements Map.Entry<String, Long> {
-    private final CompactStringLongMap owner;
+  protected static class Node implements Map.Entry<String, Byte> {
+    private final BytePocketMap owner;
     private final long keyRef;
     private int index;
     private int rehashCount;
 
-    protected Node(CompactStringLongMap owner, int index) {
+    protected Node(BytePocketMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -363,14 +363,14 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     }
 
     @Override
-    public Long getValue() {
+    public Byte getValue() {
       return owner.values[this.getIndex()];
     }
 
     @Override
-    public Long setValue(Long value) {
+    public Byte setValue(Byte value) {
       int index = this.getIndex();
-      Long prev = owner.values[index];
+      Byte prev = owner.values[index];
       owner.values[index] = value;
       return prev;
     }
@@ -390,9 +390,9 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     }
   }
 
-  protected static class EntrySet extends AbstractSet<Map.Entry<String, Long>> {
-    private final CompactStringLongMap owner;
-    protected EntrySet(final CompactStringLongMap owner) {
+  protected static class EntrySet extends AbstractSet<Map.Entry<String, Byte>> {
+    private final BytePocketMap owner;
+    protected EntrySet(final BytePocketMap owner) {
       this.owner = owner;
     }
 
@@ -402,7 +402,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Map.Entry<String, Long>> iterator() {
+    public final Iterator<Map.Entry<String, Byte>> iterator() {
       return new EntryIterator(owner);
     }
 
@@ -418,7 +418,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
       }
       return false;
     }
-    public final void forEach(Consumer<? super Map.Entry<String, Long>> action) {
+    public final void forEach(Consumer<? super Map.Entry<String, Byte>> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -435,12 +435,12 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   }
 
   protected static abstract class HashIterator {
-    protected final CompactStringLongMap owner;
+    protected final BytePocketMap owner;
     private final int rehashCount;
     private int index;
     private int nextIndex;
 
-    protected HashIterator(final CompactStringLongMap owner) {
+    protected HashIterator(final BytePocketMap owner) {
       this.owner = owner;
       this.rehashCount = owner.rehashCount;
       this.index = -1;
@@ -484,7 +484,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   }
 
   protected static class KeyIterator extends HashIterator implements Iterator<String> {
-    protected KeyIterator(final CompactStringLongMap owner) {
+    protected KeyIterator(final BytePocketMap owner) {
       super(owner);
     }
     public final String next() {
@@ -493,21 +493,21 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
     }
   }
 
-  protected static class ValueIterator extends HashIterator implements Iterator<Long> {
-    protected ValueIterator(final CompactStringLongMap owner) {
+  protected static class ValueIterator extends HashIterator implements Iterator<Byte> {
+    protected ValueIterator(final BytePocketMap owner) {
       super(owner);
     }
-    public final Long next() {
+    public final Byte next() {
       int idx = this.advance();
       return owner.values[idx];
     }
   }
 
-  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Long>> {
-    protected EntryIterator(final CompactStringLongMap owner) {
+  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Byte>> {
+    protected EntryIterator(final BytePocketMap owner) {
       super(owner);
     }
-    public final Map.Entry<String, Long> next() {
+    public final Map.Entry<String, Byte> next() {
       int idx = this.advance();
       return new Node(owner, idx);
     }
@@ -600,7 +600,7 @@ public class CompactStringLongMap extends AbstractMap<String, Long> implements C
   private void setCapacity(int cap) {
     // System.err.format("%s setCapacity(%d) from (cap=%d,size=%d,dead=%d)\n", this, cap, this.keys.length, this.size, this.tombstoneCount);
     long[] nextKeys = new long[cap];
-    long[] nextValues = new long[cap];
+    byte[] nextValues = new byte[cap];
     for (int src = 0; src < this.keys.length; src++) {
       if ((this.keys[src] & 3) == 3) {
         // INVARIANT 2a upheld: this condition is true for `size` iterations, and each time

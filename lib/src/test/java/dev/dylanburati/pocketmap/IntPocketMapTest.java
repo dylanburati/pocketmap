@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,62 +13,73 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/* template! \(.test_imports//"// no extra imports") */
 // no extra imports
 
-class CompactStringBooleanMapTest {
+/* template_all! [505, 606, 707, 808] */
+/* template! class \(.val.disp)PocketMapTest { */
+class IntPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new CompactStringBooleanMap(-1));
+    /* template! assertThrows(IllegalArgumentException.class, () -> new \(.val.disp)PocketMap\(.val.generic//"")(-1)); */
+    assertThrows(IllegalArgumentException.class, () -> new IntPocketMap(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap(0);
-    assertNull(m.put("", false));
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(0); */
+    IntPocketMap m = new IntPocketMap(0);
+    assertNull(m.put("", 505));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", false));
+    assertNull(m.put("a", 505));
     assertEquals(1, m.size());
-    assertNull(m.put("b", true));
-    assertEquals(false, m.get("a"));
-    assertEquals(true, m.get("b"));
+    assertNull(m.put("b", 606));
+    assertEquals(505, m.get("a"));
+    assertEquals(606, m.get("b"));
   }
 
   @Test void testPutAll() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", false));
+    assertNull(m.put("a", 505));
     assertEquals(1, m.size());
-    assertNull(m.put("b", true));
-    CompactStringBooleanMap m2 = new CompactStringBooleanMap();
+    assertNull(m.put("b", 606));
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m2 = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m2 = new IntPocketMap();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
-    assertEquals(false, m.get("a"));
-    assertEquals(true, m.get("b"));
+    assertEquals(505, m.get("a"));
+    assertEquals(606, m.get("b"));
   }
 
   @Test void testInsertLongKeys() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
-      assertNull(m.put(bldr.toString(), false));
+      assertNull(m.put(bldr.toString(), 505));
     }
     assertEquals(4095, m.size());
     for (int i = 16; i < 65536; i += 16) {
-      assertEquals(false, m.get(bldr.substring(0, i)));
+      assertEquals(505, m.get(bldr.substring(0, i)));
     }
   }
 
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    CompactStringBooleanMap m = new CompactStringBooleanMap(initialCapacity);
-    IntFunction<Boolean> toValue = (v) -> v % 2 == 0;
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(initialCapacity); */
+    IntPocketMap m = new IntPocketMap(initialCapacity);
+    /* template! IntFunction<\(.val.view)> toValue = \(.intLambda); */
+    IntFunction<Integer> toValue = (v) -> v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
 
@@ -123,69 +134,78 @@ class CompactStringBooleanMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
-    assertNull(m.put("a", false));
-    assertEquals(false, m.get("a"));
-    assertEquals(m.put("a", true), false);
-    assertEquals(true, m.get("a"));
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
+    assertNull(m.put("a", 505));
+    assertEquals(505, m.get("a"));
+    assertEquals(m.put("a", 606), 505);
+    assertEquals(606, m.get("a"));
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
-    assertNull(m.put("a", false));
-    assertEquals(false, m.get("a"));
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
+    assertNull(m.put("a", 505));
+    assertEquals(505, m.get("a"));
 
-    assertNull(m.put("%($", true));
-    assertEquals(false, m.get("a"));
-    assertEquals(true, m.get("%($"));
+    assertNull(m.put("%($", 606));
+    assertEquals(505, m.get("a"));
+    assertEquals(606, m.get("%($"));
 
-    assertNull(m.put("?/4-AW\u0000", false));
-    assertEquals(false, m.get("a"));
-    assertEquals(true, m.get("%($"));
-    assertEquals(false, m.get("?/4-AW\u0000"));
+    assertNull(m.put("?/4-AW\u0000", 707));
+    assertEquals(505, m.get("a"));
+    assertEquals(606, m.get("%($"));
+    assertEquals(707, m.get("?/4-AW\u0000"));
 
-    assertEquals(false, m.remove("a"));
-    assertEquals(true, m.get("%($"));
-    assertEquals(false, m.get("?/4-AW\u0000"));
+    assertEquals(505, m.remove("a"));
+    assertEquals(606, m.get("%($"));
+    assertEquals(707, m.get("?/4-AW\u0000"));
 
-    assertNull(m.put("a", false));
-    assertEquals(false, m.get("a"));
+    assertNull(m.put("a", 505));
+    assertEquals(505, m.get("a"));
   }
 
   @Test void testIsEmpty() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
     assertTrue(m.isEmpty());
-    assertNull(m.put("a", false));
+    assertNull(m.put("a", 505));
     assertFalse(m.isEmpty());
-    assertEquals(false, m.remove("a"));
+    assertEquals(505, m.remove("a"));
     assertTrue(m.isEmpty());
   }
 
   @Test void testRemove() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
-    assertNull(m.put("a", false));
-    assertEquals(false, m.remove("a"));
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
+    assertNull(m.put("a", 505));
+    assertEquals(505, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap();
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
+    IntPocketMap m = new IntPocketMap();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap(8);
-    List<Boolean> values = Stream.generate(() -> List.of(false, true, false, true)).limit(8).flatMap(List::stream).collect(Collectors.toList());
-    for (Boolean v : values) {
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
+    IntPocketMap m = new IntPocketMap(8);
+    /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
+    List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    /* template! for (\(.val.view) v : values) { */
+    for (Integer v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
     long observed = 0;
-    for (Entry<String, Boolean> e : m.entrySet()) {
+    /* template! for (Entry<String, \(.val.view)> e : m.entrySet()) { */
+    for (Entry<String, Integer> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
@@ -197,17 +217,22 @@ class CompactStringBooleanMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    CompactStringBooleanMap m = new CompactStringBooleanMap(8);
-    List<Boolean> values = Stream.generate(() -> List.of(false, true, false, true)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
+    IntPocketMap m = new IntPocketMap(8);
+    /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
+    List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
-    for (Boolean v : values) {
+    /* template! for (\(.val.view) v : values) { */
+    for (Integer v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
-    for (Iterator<Entry<String, Boolean>> it = m.entrySet().iterator(); it.hasNext(); ) {
-      Entry<String, Boolean> e = it.next();
+    /* template! for (Iterator<Entry<String, \(.val.view)>> it = m.entrySet().iterator(); it.hasNext(); ) { */
+    for (Iterator<Entry<String, Integer>> it = m.entrySet().iterator(); it.hasNext(); ) {
+      /* template! Entry<String, \(.val.view)> e = it.next(); */
+      Entry<String, Integer> e = it.next();
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       if (k % 2 == 0) {
@@ -217,22 +242,26 @@ class CompactStringBooleanMapTest {
     assertEquals(16, m.size());
 
     long observed = 0;
-    for (Entry<String, Boolean> e : m.entrySet()) {
+    /* template! for (Entry<String, \(.val.view)> e : m.entrySet()) { */
+    for (Entry<String, Integer> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;
 
-      e.setValue(!e.getValue());
+      /* template! e.setValue(\(.unary_pre//"-")e.getValue()\(.unary_post//"")); */
+      e.setValue(-e.getValue());
     }
 
     assertEquals(0xAAAA_AAAAL, observed);
 
     observed = 0;
-    for (Entry<String, Boolean> e : m.entrySet()) {
+    /* template! for (Entry<String, \(.val.view)> e : m.entrySet()) { */
+    for (Entry<String, Integer> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
-      assertEquals(!values.get(k), e.getValue());
+      /* template! assertEquals(\(.unary_pre//"-")values.get(k)\(.unary_post//""), e.getValue()); */
+      assertEquals(-values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;

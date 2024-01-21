@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * Hash map from strings to booleans which minimizes memory overhead at large sizes.
+ * Hash map from strings to floats which minimizes memory overhead at large sizes.
  *
  * Internally, all keys are converted to UTF-8 when inserted, and new keys are
  * pushed into the key storage buffer. Lookups use a {@code long[]} array of
@@ -25,13 +25,13 @@ import java.util.function.Consumer;
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implements Cloneable {
+public class FloatPocketMap extends AbstractMap<String, Float> implements Cloneable {
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
   // INVARIANT 1: keys.length == values.length
   private long[] keys;
-  private boolean[] values;
+  private float[] values;
 
   // INVARIANT 2:
   //  2A: size           == count [k | k in keys, (k & 3) == 3]
@@ -41,15 +41,15 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   private int tombstoneCount;
   private int rehashCount;
 
-  public CompactStringBooleanMap() {
+  public FloatPocketMap() {
     this(DEFAULT_CAPACITY);
   }
 
-  public CompactStringBooleanMap(int initialCapacity) {
+  public FloatPocketMap(int initialCapacity) {
     this(initialCapacity, DefaultHasher.instance());
   }
 
-  public CompactStringBooleanMap(int initialCapacity, final Hasher hasher) {
+  public FloatPocketMap(int initialCapacity, final Hasher hasher) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("expected non-negative initialCapacity");
     }
@@ -62,13 +62,13 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     this.keyStorage = new KeyStorage(hasher);
     // INVARIANT 1 upheld
     this.keys = new long[cap];
-    this.values = new boolean[cap];
+    this.values = new float[cap];
     // INVARIANT 2 upheld, keys is all zeroes
     this.size = 0;
     this.tombstoneCount = 0;
   }
 
-  private CompactStringBooleanMap(final KeyStorage keyStorage, long[] keys, boolean[] values, int size) {
+  private FloatPocketMap(final KeyStorage keyStorage, long[] keys, float[] values, int size) {
     // clone constructor, invariants are the responsibility of clone()
     this.hasher = keyStorage.hasher;
     this.keyStorage = keyStorage;
@@ -103,21 +103,21 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     if (!(key instanceof String)) {
       return false;
     }
-    if (!(value instanceof Boolean)) {
+    if (!(value instanceof Float)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    return idx >= 0 && this.values[idx] == (Boolean) value;
+    return idx >= 0 && this.values[idx] == (Float) value;
   }
 
   @Override
   public boolean containsValue(Object value) {
-    if (!(value instanceof Boolean)) {
+    if (!(value instanceof Float)) {
       return false;
     }
     for (int src = 0; src < this.keys.length; src++) {
-      if ((this.keys[src] & 3) == 3 && this.values[src] == (Boolean) value) {
+      if ((this.keys[src] & 3) == 3 && this.values[src] == (Float) value) {
         return true;
       }
     }
@@ -125,7 +125,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   @Override
-  public Boolean get(Object key) {
+  public Float get(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -138,12 +138,12 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   @Override
-  public Boolean put(String key, Boolean value) {
+  public Float put(String key, Float value) {
     // System.err.println("put");
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      Boolean prev = this.values[idx];
+      Float prev = this.values[idx];
       this.values[idx] = value;
       return prev;
     }
@@ -173,7 +173,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   @Override
-  public Boolean remove(Object key) {
+  public Float remove(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -181,7 +181,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      Boolean result = this.values[idx];
+      Float result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return result;
@@ -195,12 +195,12 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     if (!(key instanceof String)) {
       return false;
     }
-    if (!(value instanceof Boolean)) {
+    if (!(value instanceof Float)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    if (idx >= 0 && this.values[idx] == (Boolean) value) {
+    if (idx >= 0 && this.values[idx] == (Float) value) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return true;
@@ -209,8 +209,8 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   @Override
-  public void putAll(Map<? extends String, ? extends Boolean> m) {
-    for (Map.Entry<? extends String, ? extends Boolean> e : m.entrySet()) {
+  public void putAll(Map<? extends String, ? extends Float> m) {
+    for (Map.Entry<? extends String, ? extends Float> e : m.entrySet()) {
       this.put(e.getKey(), e.getValue());
     }
   }
@@ -229,12 +229,12 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   @Override
-  public Collection<Boolean> values() {
+  public Collection<Float> values() {
     return new Values(this);
   }
 
   @Override
-  public Set<Entry<String, Boolean>> entrySet() {
+  public Set<Entry<String, Float>> entrySet() {
     return new EntrySet(this);
   }
 
@@ -242,7 +242,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   protected Object clone() throws CloneNotSupportedException {
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
-    boolean[] valuesClone = Arrays.copyOf(this.values, this.values.length);
+    float[] valuesClone = Arrays.copyOf(this.values, this.values.length);
     KeyStorage newKeyStorage = new KeyStorage(this.hasher);
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & 3) == 3) {
@@ -252,15 +252,15 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
       // INVARIANT 2b upheld: zero tombstones, keysClone[i] has low bits == 0 otherwise
     }
 
-    return new CompactStringBooleanMap(newKeyStorage, keysClone, valuesClone, this.size);
+    return new FloatPocketMap(newKeyStorage, keysClone, valuesClone, this.size);
   }
 
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
   protected static class KeySet extends AbstractSet<String> {
-    private final CompactStringBooleanMap owner;
-    protected KeySet(final CompactStringBooleanMap owner) {
+    private final FloatPocketMap owner;
+    protected KeySet(final FloatPocketMap owner) {
       this.owner = owner;
     }
 
@@ -296,9 +296,9 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     }
   }
 
-  protected static class Values extends AbstractCollection<Boolean> {
-    private final CompactStringBooleanMap owner;
-    protected Values(final CompactStringBooleanMap owner) {
+  protected static class Values extends AbstractCollection<Float> {
+    private final FloatPocketMap owner;
+    protected Values(final FloatPocketMap owner) {
       this.owner = owner;
     }
 
@@ -308,14 +308,14 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Boolean> iterator() {
+    public final Iterator<Float> iterator() {
       return new ValueIterator(owner);
     }
     public final boolean contains(Object o) {
       return owner.containsValue(o);
     }
 
-    public final void forEach(Consumer<? super Boolean> action) {
+    public final void forEach(Consumer<? super Float> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -331,13 +331,13 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     }
   }
 
-  protected static class Node implements Map.Entry<String, Boolean> {
-    private final CompactStringBooleanMap owner;
+  protected static class Node implements Map.Entry<String, Float> {
+    private final FloatPocketMap owner;
     private final long keyRef;
     private int index;
     private int rehashCount;
 
-    protected Node(CompactStringBooleanMap owner, int index) {
+    protected Node(FloatPocketMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -363,14 +363,14 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     }
 
     @Override
-    public Boolean getValue() {
+    public Float getValue() {
       return owner.values[this.getIndex()];
     }
 
     @Override
-    public Boolean setValue(Boolean value) {
+    public Float setValue(Float value) {
       int index = this.getIndex();
-      Boolean prev = owner.values[index];
+      Float prev = owner.values[index];
       owner.values[index] = value;
       return prev;
     }
@@ -390,9 +390,9 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     }
   }
 
-  protected static class EntrySet extends AbstractSet<Map.Entry<String, Boolean>> {
-    private final CompactStringBooleanMap owner;
-    protected EntrySet(final CompactStringBooleanMap owner) {
+  protected static class EntrySet extends AbstractSet<Map.Entry<String, Float>> {
+    private final FloatPocketMap owner;
+    protected EntrySet(final FloatPocketMap owner) {
       this.owner = owner;
     }
 
@@ -402,7 +402,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Map.Entry<String, Boolean>> iterator() {
+    public final Iterator<Map.Entry<String, Float>> iterator() {
       return new EntryIterator(owner);
     }
 
@@ -418,7 +418,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
       }
       return false;
     }
-    public final void forEach(Consumer<? super Map.Entry<String, Boolean>> action) {
+    public final void forEach(Consumer<? super Map.Entry<String, Float>> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -435,12 +435,12 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   protected static abstract class HashIterator {
-    protected final CompactStringBooleanMap owner;
+    protected final FloatPocketMap owner;
     private final int rehashCount;
     private int index;
     private int nextIndex;
 
-    protected HashIterator(final CompactStringBooleanMap owner) {
+    protected HashIterator(final FloatPocketMap owner) {
       this.owner = owner;
       this.rehashCount = owner.rehashCount;
       this.index = -1;
@@ -484,7 +484,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   }
 
   protected static class KeyIterator extends HashIterator implements Iterator<String> {
-    protected KeyIterator(final CompactStringBooleanMap owner) {
+    protected KeyIterator(final FloatPocketMap owner) {
       super(owner);
     }
     public final String next() {
@@ -493,21 +493,21 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
     }
   }
 
-  protected static class ValueIterator extends HashIterator implements Iterator<Boolean> {
-    protected ValueIterator(final CompactStringBooleanMap owner) {
+  protected static class ValueIterator extends HashIterator implements Iterator<Float> {
+    protected ValueIterator(final FloatPocketMap owner) {
       super(owner);
     }
-    public final Boolean next() {
+    public final Float next() {
       int idx = this.advance();
       return owner.values[idx];
     }
   }
 
-  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Boolean>> {
-    protected EntryIterator(final CompactStringBooleanMap owner) {
+  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Float>> {
+    protected EntryIterator(final FloatPocketMap owner) {
       super(owner);
     }
-    public final Map.Entry<String, Boolean> next() {
+    public final Map.Entry<String, Float> next() {
       int idx = this.advance();
       return new Node(owner, idx);
     }
@@ -600,7 +600,7 @@ public class CompactStringBooleanMap extends AbstractMap<String, Boolean> implem
   private void setCapacity(int cap) {
     // System.err.format("%s setCapacity(%d) from (cap=%d,size=%d,dead=%d)\n", this, cap, this.keys.length, this.size, this.tombstoneCount);
     long[] nextKeys = new long[cap];
-    boolean[] nextValues = new boolean[cap];
+    float[] nextValues = new float[cap];
     for (int src = 0; src < this.keys.length; src++) {
       if ((this.keys[src] & 3) == 3) {
         // INVARIANT 2a upheld: this condition is true for `size` iterations, and each time

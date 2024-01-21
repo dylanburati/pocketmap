@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -22,8 +22,8 @@ import org.openjdk.jmh.infra.Blackhole;
 public class StringIntMapBenchmark {
   @Benchmark
   @BenchmarkMode(Mode.SingleShotTime)
-  public void bigramsCompactMap(Blackhole bh) {
-    bh.consume(bigrams(new CompactStringIntMap()));
+  public void bigramsPocketMap(Blackhole bh) {
+    bh.consume(bigrams(new IntPocketMap()));
   }
 
   @Benchmark

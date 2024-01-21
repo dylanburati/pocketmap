@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,73 +13,62 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/* template! \(.test_imports//"// no extra imports") */
 // no extra imports
 
-/* template_all! [505, 606, 707, 808] */
-/* template! class CompactString\(.val.disp)MapTest { */
-class CompactStringIntMapTest {
+class LongPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    /* template! assertThrows(IllegalArgumentException.class, () -> new CompactString\(.val.disp)Map\(.val.generic//"")(-1)); */
-    assertThrows(IllegalArgumentException.class, () -> new CompactStringIntMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> new LongPocketMap(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(0); */
-    CompactStringIntMap m = new CompactStringIntMap(0);
-    assertNull(m.put("", 505));
+    LongPocketMap m = new LongPocketMap(0);
+    assertNull(m.put("", 505L));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
+    LongPocketMap m = new LongPocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", 505));
+    assertNull(m.put("a", 505L));
     assertEquals(1, m.size());
-    assertNull(m.put("b", 606));
-    assertEquals(505, m.get("a"));
-    assertEquals(606, m.get("b"));
+    assertNull(m.put("b", 606L));
+    assertEquals(505L, m.get("a"));
+    assertEquals(606L, m.get("b"));
   }
 
   @Test void testPutAll() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
+    LongPocketMap m = new LongPocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", 505));
+    assertNull(m.put("a", 505L));
     assertEquals(1, m.size());
-    assertNull(m.put("b", 606));
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m2 = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m2 = new CompactStringIntMap();
+    assertNull(m.put("b", 606L));
+    LongPocketMap m2 = new LongPocketMap();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
-    assertEquals(505, m.get("a"));
-    assertEquals(606, m.get("b"));
+    assertEquals(505L, m.get("a"));
+    assertEquals(606L, m.get("b"));
   }
 
   @Test void testInsertLongKeys() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
+    LongPocketMap m = new LongPocketMap();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
-      assertNull(m.put(bldr.toString(), 505));
+      assertNull(m.put(bldr.toString(), 505L));
     }
     assertEquals(4095, m.size());
     for (int i = 16; i < 65536; i += 16) {
-      assertEquals(505, m.get(bldr.substring(0, i)));
+      assertEquals(505L, m.get(bldr.substring(0, i)));
     }
   }
 
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(initialCapacity); */
-    CompactStringIntMap m = new CompactStringIntMap(initialCapacity);
-    /* template! IntFunction<\(.val.view)> toValue = \(.intLambda); */
-    IntFunction<Integer> toValue = (v) -> v;
+    LongPocketMap m = new LongPocketMap(initialCapacity);
+    IntFunction<Long> toValue = (v) -> (long) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
 
@@ -134,78 +123,69 @@ class CompactStringIntMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
-    assertNull(m.put("a", 505));
-    assertEquals(505, m.get("a"));
-    assertEquals(m.put("a", 606), 505);
-    assertEquals(606, m.get("a"));
+    LongPocketMap m = new LongPocketMap();
+    assertNull(m.put("a", 505L));
+    assertEquals(505L, m.get("a"));
+    assertEquals(m.put("a", 606L), 505L);
+    assertEquals(606L, m.get("a"));
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
-    assertNull(m.put("a", 505));
-    assertEquals(505, m.get("a"));
+    LongPocketMap m = new LongPocketMap();
+    assertNull(m.put("a", 505L));
+    assertEquals(505L, m.get("a"));
 
-    assertNull(m.put("%($", 606));
-    assertEquals(505, m.get("a"));
-    assertEquals(606, m.get("%($"));
+    assertNull(m.put("%($", 606L));
+    assertEquals(505L, m.get("a"));
+    assertEquals(606L, m.get("%($"));
 
-    assertNull(m.put("?/4-AW\u0000", 707));
-    assertEquals(505, m.get("a"));
-    assertEquals(606, m.get("%($"));
-    assertEquals(707, m.get("?/4-AW\u0000"));
+    assertNull(m.put("?/4-AW\u0000", 707L));
+    assertEquals(505L, m.get("a"));
+    assertEquals(606L, m.get("%($"));
+    assertEquals(707L, m.get("?/4-AW\u0000"));
 
-    assertEquals(505, m.remove("a"));
-    assertEquals(606, m.get("%($"));
-    assertEquals(707, m.get("?/4-AW\u0000"));
+    assertEquals(505L, m.remove("a"));
+    assertEquals(606L, m.get("%($"));
+    assertEquals(707L, m.get("?/4-AW\u0000"));
 
-    assertNull(m.put("a", 505));
-    assertEquals(505, m.get("a"));
+    assertNull(m.put("a", 505L));
+    assertEquals(505L, m.get("a"));
   }
 
   @Test void testIsEmpty() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
+    LongPocketMap m = new LongPocketMap();
     assertTrue(m.isEmpty());
-    assertNull(m.put("a", 505));
+    assertNull(m.put("a", 505L));
     assertFalse(m.isEmpty());
-    assertEquals(505, m.remove("a"));
+    assertEquals(505L, m.remove("a"));
     assertTrue(m.isEmpty());
   }
 
   @Test void testRemove() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
-    assertNull(m.put("a", 505));
-    assertEquals(505, m.remove("a"));
+    LongPocketMap m = new LongPocketMap();
+    assertNull(m.put("a", 505L));
+    assertEquals(505L, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
-    CompactStringIntMap m = new CompactStringIntMap();
+    LongPocketMap m = new LongPocketMap();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(8); */
-    CompactStringIntMap m = new CompactStringIntMap(8);
-    /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
-    List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
-    /* template! for (\(.val.view) v : values) { */
-    for (Integer v : values) {
+    LongPocketMap m = new LongPocketMap(8);
+    List<Long> values = Stream.generate(() -> List.of(505L, 606L, 707L, 808L)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    for (Long v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
     long observed = 0;
-    /* template! for (Entry<String, \(.val.view)> e : m.entrySet()) { */
-    for (Entry<String, Integer> e : m.entrySet()) {
+    for (Entry<String, Long> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
@@ -217,22 +197,17 @@ class CompactStringIntMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(8); */
-    CompactStringIntMap m = new CompactStringIntMap(8);
-    /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
-    List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    LongPocketMap m = new LongPocketMap(8);
+    List<Long> values = Stream.generate(() -> List.of(505L, 606L, 707L, 808L)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
-    /* template! for (\(.val.view) v : values) { */
-    for (Integer v : values) {
+    for (Long v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
-    /* template! for (Iterator<Entry<String, \(.val.view)>> it = m.entrySet().iterator(); it.hasNext(); ) { */
-    for (Iterator<Entry<String, Integer>> it = m.entrySet().iterator(); it.hasNext(); ) {
-      /* template! Entry<String, \(.val.view)> e = it.next(); */
-      Entry<String, Integer> e = it.next();
+    for (Iterator<Entry<String, Long>> it = m.entrySet().iterator(); it.hasNext(); ) {
+      Entry<String, Long> e = it.next();
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       if (k % 2 == 0) {
@@ -242,25 +217,21 @@ class CompactStringIntMapTest {
     assertEquals(16, m.size());
 
     long observed = 0;
-    /* template! for (Entry<String, \(.val.view)> e : m.entrySet()) { */
-    for (Entry<String, Integer> e : m.entrySet()) {
+    for (Entry<String, Long> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;
 
-      /* template! e.setValue(\(.unary_pre//"-")e.getValue()\(.unary_post//"")); */
       e.setValue(-e.getValue());
     }
 
     assertEquals(0xAAAA_AAAAL, observed);
 
     observed = 0;
-    /* template! for (Entry<String, \(.val.view)> e : m.entrySet()) { */
-    for (Entry<String, Integer> e : m.entrySet()) {
+    for (Entry<String, Long> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
-      /* template! assertEquals(\(.unary_pre//"-")values.get(k)\(.unary_post//""), e.getValue()); */
       assertEquals(-values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));

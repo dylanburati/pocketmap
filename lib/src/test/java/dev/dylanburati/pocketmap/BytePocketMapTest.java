@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,60 +15,60 @@ import java.util.stream.Stream;
 
 // no extra imports
 
-class CompactStringFloatMapTest {
+class BytePocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new CompactStringFloatMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> new BytePocketMap(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    CompactStringFloatMap m = new CompactStringFloatMap(0);
-    assertNull(m.put("", 5.5f));
+    BytePocketMap m = new BytePocketMap(0);
+    assertNull(m.put("", (byte)55));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
+    BytePocketMap m = new BytePocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", 5.5f));
+    assertNull(m.put("a", (byte)55));
     assertEquals(1, m.size());
-    assertNull(m.put("b", 6.25f));
-    assertEquals(5.5f, m.get("a"));
-    assertEquals(6.25f, m.get("b"));
+    assertNull(m.put("b", (byte)66));
+    assertEquals((byte)55, m.get("a"));
+    assertEquals((byte)66, m.get("b"));
   }
 
   @Test void testPutAll() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
+    BytePocketMap m = new BytePocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", 5.5f));
+    assertNull(m.put("a", (byte)55));
     assertEquals(1, m.size());
-    assertNull(m.put("b", 6.25f));
-    CompactStringFloatMap m2 = new CompactStringFloatMap();
+    assertNull(m.put("b", (byte)66));
+    BytePocketMap m2 = new BytePocketMap();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
-    assertEquals(5.5f, m.get("a"));
-    assertEquals(6.25f, m.get("b"));
+    assertEquals((byte)55, m.get("a"));
+    assertEquals((byte)66, m.get("b"));
   }
 
   @Test void testInsertLongKeys() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
+    BytePocketMap m = new BytePocketMap();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
-      assertNull(m.put(bldr.toString(), 5.5f));
+      assertNull(m.put(bldr.toString(), (byte)55));
     }
     assertEquals(4095, m.size());
     for (int i = 16; i < 65536; i += 16) {
-      assertEquals(5.5f, m.get(bldr.substring(0, i)));
+      assertEquals((byte)55, m.get(bldr.substring(0, i)));
     }
   }
 
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    CompactStringFloatMap m = new CompactStringFloatMap(initialCapacity);
-    IntFunction<Float> toValue = (v) -> (float) v;
+    BytePocketMap m = new BytePocketMap(initialCapacity);
+    IntFunction<Byte> toValue = (v) -> (byte) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
 
@@ -123,69 +123,69 @@ class CompactStringFloatMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
-    assertNull(m.put("a", 5.5f));
-    assertEquals(5.5f, m.get("a"));
-    assertEquals(m.put("a", 6.25f), 5.5f);
-    assertEquals(6.25f, m.get("a"));
+    BytePocketMap m = new BytePocketMap();
+    assertNull(m.put("a", (byte)55));
+    assertEquals((byte)55, m.get("a"));
+    assertEquals(m.put("a", (byte)66), (byte)55);
+    assertEquals((byte)66, m.get("a"));
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
-    assertNull(m.put("a", 5.5f));
-    assertEquals(5.5f, m.get("a"));
+    BytePocketMap m = new BytePocketMap();
+    assertNull(m.put("a", (byte)55));
+    assertEquals((byte)55, m.get("a"));
 
-    assertNull(m.put("%($", 6.25f));
-    assertEquals(5.5f, m.get("a"));
-    assertEquals(6.25f, m.get("%($"));
+    assertNull(m.put("%($", (byte)66));
+    assertEquals((byte)55, m.get("a"));
+    assertEquals((byte)66, m.get("%($"));
 
-    assertNull(m.put("?/4-AW\u0000", 7.125f));
-    assertEquals(5.5f, m.get("a"));
-    assertEquals(6.25f, m.get("%($"));
-    assertEquals(7.125f, m.get("?/4-AW\u0000"));
+    assertNull(m.put("?/4-AW\u0000", (byte)77));
+    assertEquals((byte)55, m.get("a"));
+    assertEquals((byte)66, m.get("%($"));
+    assertEquals((byte)77, m.get("?/4-AW\u0000"));
 
-    assertEquals(5.5f, m.remove("a"));
-    assertEquals(6.25f, m.get("%($"));
-    assertEquals(7.125f, m.get("?/4-AW\u0000"));
+    assertEquals((byte)55, m.remove("a"));
+    assertEquals((byte)66, m.get("%($"));
+    assertEquals((byte)77, m.get("?/4-AW\u0000"));
 
-    assertNull(m.put("a", 5.5f));
-    assertEquals(5.5f, m.get("a"));
+    assertNull(m.put("a", (byte)55));
+    assertEquals((byte)55, m.get("a"));
   }
 
   @Test void testIsEmpty() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
+    BytePocketMap m = new BytePocketMap();
     assertTrue(m.isEmpty());
-    assertNull(m.put("a", 5.5f));
+    assertNull(m.put("a", (byte)55));
     assertFalse(m.isEmpty());
-    assertEquals(5.5f, m.remove("a"));
+    assertEquals((byte)55, m.remove("a"));
     assertTrue(m.isEmpty());
   }
 
   @Test void testRemove() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
-    assertNull(m.put("a", 5.5f));
-    assertEquals(5.5f, m.remove("a"));
+    BytePocketMap m = new BytePocketMap();
+    assertNull(m.put("a", (byte)55));
+    assertEquals((byte)55, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    CompactStringFloatMap m = new CompactStringFloatMap();
+    BytePocketMap m = new BytePocketMap();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    CompactStringFloatMap m = new CompactStringFloatMap(8);
-    List<Float> values = Stream.generate(() -> List.of(5.5f, 6.25f, 7.125f, 8.0625f)).limit(8).flatMap(List::stream).collect(Collectors.toList());
-    for (Float v : values) {
+    BytePocketMap m = new BytePocketMap(8);
+    List<Byte> values = Stream.generate(() -> List.of((byte)55, (byte)66, (byte)77, (byte)88)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    for (Byte v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
     long observed = 0;
-    for (Entry<String, Float> e : m.entrySet()) {
+    for (Entry<String, Byte> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
@@ -197,17 +197,17 @@ class CompactStringFloatMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    CompactStringFloatMap m = new CompactStringFloatMap(8);
-    List<Float> values = Stream.generate(() -> List.of(5.5f, 6.25f, 7.125f, 8.0625f)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    BytePocketMap m = new BytePocketMap(8);
+    List<Byte> values = Stream.generate(() -> List.of((byte)55, (byte)66, (byte)77, (byte)88)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
-    for (Float v : values) {
+    for (Byte v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
-    for (Iterator<Entry<String, Float>> it = m.entrySet().iterator(); it.hasNext(); ) {
-      Entry<String, Float> e = it.next();
+    for (Iterator<Entry<String, Byte>> it = m.entrySet().iterator(); it.hasNext(); ) {
+      Entry<String, Byte> e = it.next();
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       if (k % 2 == 0) {
@@ -217,22 +217,22 @@ class CompactStringFloatMapTest {
     assertEquals(16, m.size());
 
     long observed = 0;
-    for (Entry<String, Float> e : m.entrySet()) {
+    for (Entry<String, Byte> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;
 
-      e.setValue(-e.getValue());
+      e.setValue((byte) -e.getValue());
     }
 
     assertEquals(0xAAAA_AAAAL, observed);
 
     observed = 0;
-    for (Entry<String, Float> e : m.entrySet()) {
+    for (Entry<String, Byte> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
-      assertEquals(-values.get(k), e.getValue());
+      assertEquals((byte) -values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;

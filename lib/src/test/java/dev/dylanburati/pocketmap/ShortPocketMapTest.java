@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,21 +15,21 @@ import java.util.stream.Stream;
 
 // no extra imports
 
-class CompactStringShortMapTest {
+class ShortPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new CompactStringShortMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> new ShortPocketMap(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    CompactStringShortMap m = new CompactStringShortMap(0);
+    ShortPocketMap m = new ShortPocketMap(0);
     assertNull(m.put("", (short)505));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     assertEquals(0, m.size());
     assertNull(m.put("a", (short)505));
     assertEquals(1, m.size());
@@ -39,12 +39,12 @@ class CompactStringShortMapTest {
   }
 
   @Test void testPutAll() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     assertEquals(0, m.size());
     assertNull(m.put("a", (short)505));
     assertEquals(1, m.size());
     assertNull(m.put("b", (short)606));
-    CompactStringShortMap m2 = new CompactStringShortMap();
+    ShortPocketMap m2 = new ShortPocketMap();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals((short)505, m.get("a"));
@@ -52,7 +52,7 @@ class CompactStringShortMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -67,7 +67,7 @@ class CompactStringShortMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    CompactStringShortMap m = new CompactStringShortMap(initialCapacity);
+    ShortPocketMap m = new ShortPocketMap(initialCapacity);
     IntFunction<Short> toValue = (v) -> (short) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -123,7 +123,7 @@ class CompactStringShortMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     assertNull(m.put("a", (short)505));
     assertEquals((short)505, m.get("a"));
     assertEquals(m.put("a", (short)606), (short)505);
@@ -131,7 +131,7 @@ class CompactStringShortMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     assertNull(m.put("a", (short)505));
     assertEquals((short)505, m.get("a"));
 
@@ -153,7 +153,7 @@ class CompactStringShortMapTest {
   }
 
   @Test void testIsEmpty() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", (short)505));
     assertFalse(m.isEmpty());
@@ -162,21 +162,21 @@ class CompactStringShortMapTest {
   }
 
   @Test void testRemove() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     assertNull(m.put("a", (short)505));
     assertEquals((short)505, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    ShortPocketMap m = new ShortPocketMap();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    CompactStringShortMap m = new CompactStringShortMap(8);
+    ShortPocketMap m = new ShortPocketMap(8);
     List<Short> values = Stream.generate(() -> List.of((short)505, (short)606, (short)707, (short)808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (Short v : values) {
       String k = Integer.toString(m.size());
@@ -197,7 +197,7 @@ class CompactStringShortMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    CompactStringShortMap m = new CompactStringShortMap(8);
+    ShortPocketMap m = new ShortPocketMap(8);
     List<Short> values = Stream.generate(() -> List.of((short)505, (short)606, (short)707, (short)808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Short v : values) {

@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * Hash map from strings to floats which minimizes memory overhead at large sizes.
+ * Hash map from strings to doubles which minimizes memory overhead at large sizes.
  *
  * Internally, all keys are converted to UTF-8 when inserted, and new keys are
  * pushed into the key storage buffer. Lookups use a {@code long[]} array of
@@ -25,13 +25,13 @@ import java.util.function.Consumer;
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-public class CompactStringFloatMap extends AbstractMap<String, Float> implements Cloneable {
+public class DoublePocketMap extends AbstractMap<String, Double> implements Cloneable {
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
   // INVARIANT 1: keys.length == values.length
   private long[] keys;
-  private float[] values;
+  private double[] values;
 
   // INVARIANT 2:
   //  2A: size           == count [k | k in keys, (k & 3) == 3]
@@ -41,15 +41,15 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   private int tombstoneCount;
   private int rehashCount;
 
-  public CompactStringFloatMap() {
+  public DoublePocketMap() {
     this(DEFAULT_CAPACITY);
   }
 
-  public CompactStringFloatMap(int initialCapacity) {
+  public DoublePocketMap(int initialCapacity) {
     this(initialCapacity, DefaultHasher.instance());
   }
 
-  public CompactStringFloatMap(int initialCapacity, final Hasher hasher) {
+  public DoublePocketMap(int initialCapacity, final Hasher hasher) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("expected non-negative initialCapacity");
     }
@@ -62,13 +62,13 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     this.keyStorage = new KeyStorage(hasher);
     // INVARIANT 1 upheld
     this.keys = new long[cap];
-    this.values = new float[cap];
+    this.values = new double[cap];
     // INVARIANT 2 upheld, keys is all zeroes
     this.size = 0;
     this.tombstoneCount = 0;
   }
 
-  private CompactStringFloatMap(final KeyStorage keyStorage, long[] keys, float[] values, int size) {
+  private DoublePocketMap(final KeyStorage keyStorage, long[] keys, double[] values, int size) {
     // clone constructor, invariants are the responsibility of clone()
     this.hasher = keyStorage.hasher;
     this.keyStorage = keyStorage;
@@ -103,21 +103,21 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     if (!(key instanceof String)) {
       return false;
     }
-    if (!(value instanceof Float)) {
+    if (!(value instanceof Double)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    return idx >= 0 && this.values[idx] == (Float) value;
+    return idx >= 0 && this.values[idx] == (Double) value;
   }
 
   @Override
   public boolean containsValue(Object value) {
-    if (!(value instanceof Float)) {
+    if (!(value instanceof Double)) {
       return false;
     }
     for (int src = 0; src < this.keys.length; src++) {
-      if ((this.keys[src] & 3) == 3 && this.values[src] == (Float) value) {
+      if ((this.keys[src] & 3) == 3 && this.values[src] == (Double) value) {
         return true;
       }
     }
@@ -125,7 +125,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   }
 
   @Override
-  public Float get(Object key) {
+  public Double get(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -138,12 +138,12 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   }
 
   @Override
-  public Float put(String key, Float value) {
+  public Double put(String key, Double value) {
     // System.err.println("put");
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      Float prev = this.values[idx];
+      Double prev = this.values[idx];
       this.values[idx] = value;
       return prev;
     }
@@ -173,7 +173,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   }
 
   @Override
-  public Float remove(Object key) {
+  public Double remove(Object key) {
     if (!(key instanceof String)) {
       return null;
     }
@@ -181,7 +181,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      Float result = this.values[idx];
+      Double result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return result;
@@ -195,12 +195,12 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     if (!(key instanceof String)) {
       return false;
     }
-    if (!(value instanceof Float)) {
+    if (!(value instanceof Double)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    if (idx >= 0 && this.values[idx] == (Float) value) {
+    if (idx >= 0 && this.values[idx] == (Double) value) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return true;
@@ -209,8 +209,8 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   }
 
   @Override
-  public void putAll(Map<? extends String, ? extends Float> m) {
-    for (Map.Entry<? extends String, ? extends Float> e : m.entrySet()) {
+  public void putAll(Map<? extends String, ? extends Double> m) {
+    for (Map.Entry<? extends String, ? extends Double> e : m.entrySet()) {
       this.put(e.getKey(), e.getValue());
     }
   }
@@ -229,12 +229,12 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   }
 
   @Override
-  public Collection<Float> values() {
+  public Collection<Double> values() {
     return new Values(this);
   }
 
   @Override
-  public Set<Entry<String, Float>> entrySet() {
+  public Set<Entry<String, Double>> entrySet() {
     return new EntrySet(this);
   }
 
@@ -242,7 +242,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   protected Object clone() throws CloneNotSupportedException {
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
-    float[] valuesClone = Arrays.copyOf(this.values, this.values.length);
+    double[] valuesClone = Arrays.copyOf(this.values, this.values.length);
     KeyStorage newKeyStorage = new KeyStorage(this.hasher);
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & 3) == 3) {
@@ -252,15 +252,15 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
       // INVARIANT 2b upheld: zero tombstones, keysClone[i] has low bits == 0 otherwise
     }
 
-    return new CompactStringFloatMap(newKeyStorage, keysClone, valuesClone, this.size);
+    return new DoublePocketMap(newKeyStorage, keysClone, valuesClone, this.size);
   }
 
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
   protected static class KeySet extends AbstractSet<String> {
-    private final CompactStringFloatMap owner;
-    protected KeySet(final CompactStringFloatMap owner) {
+    private final DoublePocketMap owner;
+    protected KeySet(final DoublePocketMap owner) {
       this.owner = owner;
     }
 
@@ -296,9 +296,9 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     }
   }
 
-  protected static class Values extends AbstractCollection<Float> {
-    private final CompactStringFloatMap owner;
-    protected Values(final CompactStringFloatMap owner) {
+  protected static class Values extends AbstractCollection<Double> {
+    private final DoublePocketMap owner;
+    protected Values(final DoublePocketMap owner) {
       this.owner = owner;
     }
 
@@ -308,14 +308,14 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Float> iterator() {
+    public final Iterator<Double> iterator() {
       return new ValueIterator(owner);
     }
     public final boolean contains(Object o) {
       return owner.containsValue(o);
     }
 
-    public final void forEach(Consumer<? super Float> action) {
+    public final void forEach(Consumer<? super Double> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -331,13 +331,13 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     }
   }
 
-  protected static class Node implements Map.Entry<String, Float> {
-    private final CompactStringFloatMap owner;
+  protected static class Node implements Map.Entry<String, Double> {
+    private final DoublePocketMap owner;
     private final long keyRef;
     private int index;
     private int rehashCount;
 
-    protected Node(CompactStringFloatMap owner, int index) {
+    protected Node(DoublePocketMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -363,14 +363,14 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     }
 
     @Override
-    public Float getValue() {
+    public Double getValue() {
       return owner.values[this.getIndex()];
     }
 
     @Override
-    public Float setValue(Float value) {
+    public Double setValue(Double value) {
       int index = this.getIndex();
-      Float prev = owner.values[index];
+      Double prev = owner.values[index];
       owner.values[index] = value;
       return prev;
     }
@@ -390,9 +390,9 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     }
   }
 
-  protected static class EntrySet extends AbstractSet<Map.Entry<String, Float>> {
-    private final CompactStringFloatMap owner;
-    protected EntrySet(final CompactStringFloatMap owner) {
+  protected static class EntrySet extends AbstractSet<Map.Entry<String, Double>> {
+    private final DoublePocketMap owner;
+    protected EntrySet(final DoublePocketMap owner) {
       this.owner = owner;
     }
 
@@ -402,7 +402,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Map.Entry<String, Float>> iterator() {
+    public final Iterator<Map.Entry<String, Double>> iterator() {
       return new EntryIterator(owner);
     }
 
@@ -418,7 +418,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
       }
       return false;
     }
-    public final void forEach(Consumer<? super Map.Entry<String, Float>> action) {
+    public final void forEach(Consumer<? super Map.Entry<String, Double>> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -435,12 +435,12 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   }
 
   protected static abstract class HashIterator {
-    protected final CompactStringFloatMap owner;
+    protected final DoublePocketMap owner;
     private final int rehashCount;
     private int index;
     private int nextIndex;
 
-    protected HashIterator(final CompactStringFloatMap owner) {
+    protected HashIterator(final DoublePocketMap owner) {
       this.owner = owner;
       this.rehashCount = owner.rehashCount;
       this.index = -1;
@@ -484,7 +484,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   }
 
   protected static class KeyIterator extends HashIterator implements Iterator<String> {
-    protected KeyIterator(final CompactStringFloatMap owner) {
+    protected KeyIterator(final DoublePocketMap owner) {
       super(owner);
     }
     public final String next() {
@@ -493,21 +493,21 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     }
   }
 
-  protected static class ValueIterator extends HashIterator implements Iterator<Float> {
-    protected ValueIterator(final CompactStringFloatMap owner) {
+  protected static class ValueIterator extends HashIterator implements Iterator<Double> {
+    protected ValueIterator(final DoublePocketMap owner) {
       super(owner);
     }
-    public final Float next() {
+    public final Double next() {
       int idx = this.advance();
       return owner.values[idx];
     }
   }
 
-  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Float>> {
-    protected EntryIterator(final CompactStringFloatMap owner) {
+  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Double>> {
+    protected EntryIterator(final DoublePocketMap owner) {
       super(owner);
     }
-    public final Map.Entry<String, Float> next() {
+    public final Map.Entry<String, Double> next() {
       int idx = this.advance();
       return new Node(owner, idx);
     }
@@ -600,7 +600,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
   private void setCapacity(int cap) {
     // System.err.format("%s setCapacity(%d) from (cap=%d,size=%d,dead=%d)\n", this, cap, this.keys.length, this.size, this.tombstoneCount);
     long[] nextKeys = new long[cap];
-    float[] nextValues = new float[cap];
+    double[] nextValues = new double[cap];
     for (int src = 0; src < this.keys.length; src++) {
       if ((this.keys[src] & 3) == 3) {
         // INVARIANT 2a upheld: this condition is true for `size` iterations, and each time

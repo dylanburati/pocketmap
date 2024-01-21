@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,60 +15,60 @@ import java.util.stream.Stream;
 
 // no extra imports
 
-class CompactStringByteMapTest {
+class DoublePocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new CompactStringByteMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> new DoublePocketMap(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    CompactStringByteMap m = new CompactStringByteMap(0);
-    assertNull(m.put("", (byte)55));
+    DoublePocketMap m = new DoublePocketMap(0);
+    assertNull(m.put("", 5.5));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    CompactStringByteMap m = new CompactStringByteMap();
+    DoublePocketMap m = new DoublePocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", (byte)55));
+    assertNull(m.put("a", 5.5));
     assertEquals(1, m.size());
-    assertNull(m.put("b", (byte)66));
-    assertEquals((byte)55, m.get("a"));
-    assertEquals((byte)66, m.get("b"));
+    assertNull(m.put("b", 6.25));
+    assertEquals(5.5, m.get("a"));
+    assertEquals(6.25, m.get("b"));
   }
 
   @Test void testPutAll() {
-    CompactStringByteMap m = new CompactStringByteMap();
+    DoublePocketMap m = new DoublePocketMap();
     assertEquals(0, m.size());
-    assertNull(m.put("a", (byte)55));
+    assertNull(m.put("a", 5.5));
     assertEquals(1, m.size());
-    assertNull(m.put("b", (byte)66));
-    CompactStringByteMap m2 = new CompactStringByteMap();
+    assertNull(m.put("b", 6.25));
+    DoublePocketMap m2 = new DoublePocketMap();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
-    assertEquals((byte)55, m.get("a"));
-    assertEquals((byte)66, m.get("b"));
+    assertEquals(5.5, m.get("a"));
+    assertEquals(6.25, m.get("b"));
   }
 
   @Test void testInsertLongKeys() {
-    CompactStringByteMap m = new CompactStringByteMap();
+    DoublePocketMap m = new DoublePocketMap();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
-      assertNull(m.put(bldr.toString(), (byte)55));
+      assertNull(m.put(bldr.toString(), 5.5));
     }
     assertEquals(4095, m.size());
     for (int i = 16; i < 65536; i += 16) {
-      assertEquals((byte)55, m.get(bldr.substring(0, i)));
+      assertEquals(5.5, m.get(bldr.substring(0, i)));
     }
   }
 
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    CompactStringByteMap m = new CompactStringByteMap(initialCapacity);
-    IntFunction<Byte> toValue = (v) -> (byte) v;
+    DoublePocketMap m = new DoublePocketMap(initialCapacity);
+    IntFunction<Double> toValue = (v) -> (double) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
 
@@ -123,69 +123,69 @@ class CompactStringByteMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    CompactStringByteMap m = new CompactStringByteMap();
-    assertNull(m.put("a", (byte)55));
-    assertEquals((byte)55, m.get("a"));
-    assertEquals(m.put("a", (byte)66), (byte)55);
-    assertEquals((byte)66, m.get("a"));
+    DoublePocketMap m = new DoublePocketMap();
+    assertNull(m.put("a", 5.5));
+    assertEquals(5.5, m.get("a"));
+    assertEquals(m.put("a", 6.25), 5.5);
+    assertEquals(6.25, m.get("a"));
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    CompactStringByteMap m = new CompactStringByteMap();
-    assertNull(m.put("a", (byte)55));
-    assertEquals((byte)55, m.get("a"));
+    DoublePocketMap m = new DoublePocketMap();
+    assertNull(m.put("a", 5.5));
+    assertEquals(5.5, m.get("a"));
 
-    assertNull(m.put("%($", (byte)66));
-    assertEquals((byte)55, m.get("a"));
-    assertEquals((byte)66, m.get("%($"));
+    assertNull(m.put("%($", 6.25));
+    assertEquals(5.5, m.get("a"));
+    assertEquals(6.25, m.get("%($"));
 
-    assertNull(m.put("?/4-AW\u0000", (byte)77));
-    assertEquals((byte)55, m.get("a"));
-    assertEquals((byte)66, m.get("%($"));
-    assertEquals((byte)77, m.get("?/4-AW\u0000"));
+    assertNull(m.put("?/4-AW\u0000", 7.125));
+    assertEquals(5.5, m.get("a"));
+    assertEquals(6.25, m.get("%($"));
+    assertEquals(7.125, m.get("?/4-AW\u0000"));
 
-    assertEquals((byte)55, m.remove("a"));
-    assertEquals((byte)66, m.get("%($"));
-    assertEquals((byte)77, m.get("?/4-AW\u0000"));
+    assertEquals(5.5, m.remove("a"));
+    assertEquals(6.25, m.get("%($"));
+    assertEquals(7.125, m.get("?/4-AW\u0000"));
 
-    assertNull(m.put("a", (byte)55));
-    assertEquals((byte)55, m.get("a"));
+    assertNull(m.put("a", 5.5));
+    assertEquals(5.5, m.get("a"));
   }
 
   @Test void testIsEmpty() {
-    CompactStringByteMap m = new CompactStringByteMap();
+    DoublePocketMap m = new DoublePocketMap();
     assertTrue(m.isEmpty());
-    assertNull(m.put("a", (byte)55));
+    assertNull(m.put("a", 5.5));
     assertFalse(m.isEmpty());
-    assertEquals((byte)55, m.remove("a"));
+    assertEquals(5.5, m.remove("a"));
     assertTrue(m.isEmpty());
   }
 
   @Test void testRemove() {
-    CompactStringByteMap m = new CompactStringByteMap();
-    assertNull(m.put("a", (byte)55));
-    assertEquals((byte)55, m.remove("a"));
+    DoublePocketMap m = new DoublePocketMap();
+    assertNull(m.put("a", 5.5));
+    assertEquals(5.5, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    CompactStringByteMap m = new CompactStringByteMap();
+    DoublePocketMap m = new DoublePocketMap();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    CompactStringByteMap m = new CompactStringByteMap(8);
-    List<Byte> values = Stream.generate(() -> List.of((byte)55, (byte)66, (byte)77, (byte)88)).limit(8).flatMap(List::stream).collect(Collectors.toList());
-    for (Byte v : values) {
+    DoublePocketMap m = new DoublePocketMap(8);
+    List<Double> values = Stream.generate(() -> List.of(5.5, 6.25, 7.125, 8.0625)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    for (Double v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
     long observed = 0;
-    for (Entry<String, Byte> e : m.entrySet()) {
+    for (Entry<String, Double> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
@@ -197,17 +197,17 @@ class CompactStringByteMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    CompactStringByteMap m = new CompactStringByteMap(8);
-    List<Byte> values = Stream.generate(() -> List.of((byte)55, (byte)66, (byte)77, (byte)88)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    DoublePocketMap m = new DoublePocketMap(8);
+    List<Double> values = Stream.generate(() -> List.of(5.5, 6.25, 7.125, 8.0625)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
-    for (Byte v : values) {
+    for (Double v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
-    for (Iterator<Entry<String, Byte>> it = m.entrySet().iterator(); it.hasNext(); ) {
-      Entry<String, Byte> e = it.next();
+    for (Iterator<Entry<String, Double>> it = m.entrySet().iterator(); it.hasNext(); ) {
+      Entry<String, Double> e = it.next();
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       if (k % 2 == 0) {
@@ -217,22 +217,22 @@ class CompactStringByteMapTest {
     assertEquals(16, m.size());
 
     long observed = 0;
-    for (Entry<String, Byte> e : m.entrySet()) {
+    for (Entry<String, Double> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;
 
-      e.setValue((byte) -e.getValue());
+      e.setValue(-e.getValue());
     }
 
     assertEquals(0xAAAA_AAAAL, observed);
 
     observed = 0;
-    for (Entry<String, Byte> e : m.entrySet()) {
+    for (Entry<String, Double> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
-      assertEquals((byte) -values.get(k), e.getValue());
+      assertEquals(-values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;

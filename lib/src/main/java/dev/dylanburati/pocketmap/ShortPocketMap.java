@@ -1,4 +1,4 @@
-package dev.dylanburati.shrinkwrap;
+package dev.dylanburati.pocketmap;
 
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
@@ -25,7 +25,7 @@ import java.util.function.Consumer;
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-public class CompactStringShortMap extends AbstractMap<String, Short> implements Cloneable {
+public class ShortPocketMap extends AbstractMap<String, Short> implements Cloneable {
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
@@ -41,15 +41,15 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   private int tombstoneCount;
   private int rehashCount;
 
-  public CompactStringShortMap() {
+  public ShortPocketMap() {
     this(DEFAULT_CAPACITY);
   }
 
-  public CompactStringShortMap(int initialCapacity) {
+  public ShortPocketMap(int initialCapacity) {
     this(initialCapacity, DefaultHasher.instance());
   }
 
-  public CompactStringShortMap(int initialCapacity, final Hasher hasher) {
+  public ShortPocketMap(int initialCapacity, final Hasher hasher) {
     if (initialCapacity < 0) {
       throw new IllegalArgumentException("expected non-negative initialCapacity");
     }
@@ -68,7 +68,7 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
     this.tombstoneCount = 0;
   }
 
-  private CompactStringShortMap(final KeyStorage keyStorage, long[] keys, short[] values, int size) {
+  private ShortPocketMap(final KeyStorage keyStorage, long[] keys, short[] values, int size) {
     // clone constructor, invariants are the responsibility of clone()
     this.hasher = keyStorage.hasher;
     this.keyStorage = keyStorage;
@@ -252,15 +252,15 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
       // INVARIANT 2b upheld: zero tombstones, keysClone[i] has low bits == 0 otherwise
     }
 
-    return new CompactStringShortMap(newKeyStorage, keysClone, valuesClone, this.size);
+    return new ShortPocketMap(newKeyStorage, keysClone, valuesClone, this.size);
   }
 
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
   protected static class KeySet extends AbstractSet<String> {
-    private final CompactStringShortMap owner;
-    protected KeySet(final CompactStringShortMap owner) {
+    private final ShortPocketMap owner;
+    protected KeySet(final ShortPocketMap owner) {
       this.owner = owner;
     }
 
@@ -297,8 +297,8 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   }
 
   protected static class Values extends AbstractCollection<Short> {
-    private final CompactStringShortMap owner;
-    protected Values(final CompactStringShortMap owner) {
+    private final ShortPocketMap owner;
+    protected Values(final ShortPocketMap owner) {
       this.owner = owner;
     }
 
@@ -332,12 +332,12 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   }
 
   protected static class Node implements Map.Entry<String, Short> {
-    private final CompactStringShortMap owner;
+    private final ShortPocketMap owner;
     private final long keyRef;
     private int index;
     private int rehashCount;
 
-    protected Node(CompactStringShortMap owner, int index) {
+    protected Node(ShortPocketMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -391,8 +391,8 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   }
 
   protected static class EntrySet extends AbstractSet<Map.Entry<String, Short>> {
-    private final CompactStringShortMap owner;
-    protected EntrySet(final CompactStringShortMap owner) {
+    private final ShortPocketMap owner;
+    protected EntrySet(final ShortPocketMap owner) {
       this.owner = owner;
     }
 
@@ -435,12 +435,12 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   }
 
   protected static abstract class HashIterator {
-    protected final CompactStringShortMap owner;
+    protected final ShortPocketMap owner;
     private final int rehashCount;
     private int index;
     private int nextIndex;
 
-    protected HashIterator(final CompactStringShortMap owner) {
+    protected HashIterator(final ShortPocketMap owner) {
       this.owner = owner;
       this.rehashCount = owner.rehashCount;
       this.index = -1;
@@ -484,7 +484,7 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   }
 
   protected static class KeyIterator extends HashIterator implements Iterator<String> {
-    protected KeyIterator(final CompactStringShortMap owner) {
+    protected KeyIterator(final ShortPocketMap owner) {
       super(owner);
     }
     public final String next() {
@@ -494,7 +494,7 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   }
 
   protected static class ValueIterator extends HashIterator implements Iterator<Short> {
-    protected ValueIterator(final CompactStringShortMap owner) {
+    protected ValueIterator(final ShortPocketMap owner) {
       super(owner);
     }
     public final Short next() {
@@ -504,7 +504,7 @@ public class CompactStringShortMap extends AbstractMap<String, Short> implements
   }
 
   protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Short>> {
-    protected EntryIterator(final CompactStringShortMap owner) {
+    protected EntryIterator(final ShortPocketMap owner) {
       super(owner);
     }
     public final Map.Entry<String, Short> next() {

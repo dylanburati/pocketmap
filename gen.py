@@ -68,17 +68,17 @@ test_only_configs = [
         "intLambda": "v -> List.of(v)",
         "unary_pre": "reversed(",
         "unary_post": ")",
-        "test_imports": "import static dev.dylanburati.shrinkwrap.Helpers.*;"
+        "test_imports": "import static dev.dylanburati.pocketmap.Helpers.*;"
     }
 ]
 
-base_src_path = "lib/src/main/java/dev/dylanburati/shrinkwrap"
-with open(f"{base_src_path}/CompactStringIntMap.java", "r", encoding="utf-8") as fp:
+base_src_path = "lib/src/main/java/dev/dylanburati/pocketmap"
+with open(f"{base_src_path}/IntPocketMap.java", "r", encoding="utf-8") as fp:
     src_lines = [line.rstrip() for line in fp.readlines()]
 
-base_test_path = "lib/src/test/java/dev/dylanburati/shrinkwrap"
+base_test_path = "lib/src/test/java/dev/dylanburati/pocketmap"
 with open(
-    f"{base_test_path}/CompactStringIntMapTest.java", "r", encoding="utf-8"
+    f"{base_test_path}/IntPocketMapTest.java", "r", encoding="utf-8"
 ) as fp:
     test_lines = [line.rstrip() for line in fp.readlines()]
 
@@ -170,12 +170,12 @@ if test_sanity != test_lines:
     sys.exit(1)
 
 for c in configs + src_only_configs:
-    src_file = f"CompactString{c['val']['disp']}Map.java"
+    src_file = f"{c['val']['disp']}PocketMap.java"
     with open(f"{base_src_path}/{src_file}", "w", encoding="utf-8") as fp:
         fp.write("\n".join(fill_templates(c, src_lines)))
         fp.write("\n")
 for c in configs + test_only_configs:
-    test_file = f"CompactString{c['val']['disp']}MapTest.java"
+    test_file = f"{c['val']['disp']}PocketMapTest.java"
     with open(f"{base_test_path}/{test_file}", "w", encoding="utf-8") as fp:
         fp.write("\n".join(fill_templates(c, test_lines)))
         fp.write("\n")
