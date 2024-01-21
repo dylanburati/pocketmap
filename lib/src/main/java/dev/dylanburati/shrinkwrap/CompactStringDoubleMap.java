@@ -14,9 +14,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
-/* template!(2) /**\n * Hash map from strings to \(.primitive)s which minimizes memory overhead at large sizes. */
 /**
- * Hash map from strings to ints which minimizes memory overhead at large sizes.
+ * Hash map from strings to doubles which minimizes memory overhead at large sizes.
  *
  * Internally, all keys are converted to UTF-8 when inserted, and new keys are
  * pushed into the key storage buffer. Lookups use a {@code long[]} array of
@@ -594,6 +593,7 @@ public class CompactStringDoubleMap extends AbstractMap<String, Double> implemen
   private void removeByIndex(int idx) {
     // flip tombstone flag bit
     this.keys[idx] ^= 2;
+    // this.values[idx] = null;
     this.size--;
     this.tombstoneCount++;
   }

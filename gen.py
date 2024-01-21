@@ -5,12 +5,12 @@ import re
 import sys
 
 configs = [
-    {"primitive": "boolean", "boxed": "Boolean", "example_values": ["false", "true"]},
-    {"primitive": "byte", "boxed": "Byte", "example_values": ["(byte)55", "(byte)66", "(byte)77", "(byte)88"], "demote": "(byte) "},
-    {"primitive": "short", "boxed": "Short", "example_values": ["(short)505", "(short)606", "(short)707", "(short)808"], "demote": "(short) "},
-    {"primitive": "long", "boxed": "Long", "example_values": ["505L", "606L", "707L", "808L"]},
-    {"primitive": "float", "boxed": "Float", "example_values": ["5.5f", "6.25f", "7.125f", "8.0625f"]},
-    {"primitive": "double", "boxed": "Double", "example_values": ["5.5", "6.25", "7.125", "8.0625"]},
+    {"val": {"t": "boolean", "view": "Boolean", "disp": "Boolean"}, "example_values": ["false", "true"], "intLambda": "(v) -> v % 2 == 0", "unary_pre": "!"},
+    {"val": {"t": "byte", "view": "Byte", "disp": "Byte"}, "example_values": ["(byte)55", "(byte)66", "(byte)77", "(byte)88"], "demote": "(byte) ", "intLambda": "(v) -> (byte) v", "unary_pre": "(byte) -"},
+    {"val": {"t": "short", "view": "Short", "disp": "Short"}, "example_values": ["(short)505", "(short)606", "(short)707", "(short)808"], "demote": "(short) ", "intLambda": "(v) -> (short) v", "unary_pre": "(short) -"},
+    {"val": {"t": "long", "view": "Long", "disp": "Long"}, "example_values": ["505L", "606L", "707L", "808L"], "intLambda": "(v) -> (long) v"},
+    {"val": {"t": "float", "view": "Float", "disp": "Float"}, "example_values": ["5.5f", "6.25f", "7.125f", "8.0625f"], "intLambda": "(v) -> (float) v"},
+    {"val": {"t": "double", "view": "Double", "disp": "Double"}, "example_values": ["5.5", "6.25", "7.125", "8.0625"], "intLambda": "(v) -> (double) v"},
 ]
 
 base_src_path = "lib/src/main/java/dev/dylanburati/shrinkwrap"
@@ -49,8 +49,11 @@ def fill_templates(config, lines, keep=False):
             indent = template_match.group(1)
             if (count_arg := template_match.group(2)):
                 replace_count = int(count_arg[1:-1])
+            jq_script = (
+                fr'def equals: if .[0] then "\(.[1]).equals(\(.[2]))" else "\(.[1]) == \(.[2])" end; "{template_match.group(3)}"'
+            )
             proc = subprocess.Popen(
-                ["jq", "-r", r'def pascal: "\(.[0:1] | ascii_upcase)\(.[1:] | ascii_downcase)"; "' + template_match.group(3) + '"'],
+                ["jq", "-r", jq_script],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -82,22 +85,23 @@ def fill_templates(config, lines, keep=False):
     return result
 
 
-src_sanity = fill_templates({"primitive": "int", "boxed": "Integer"}, src_lines, keep=True)
+int_config = {"val": {"t": "int", "view": "Integer", "disp": "Int"}, "intLambda": "(v) -> v"}
+src_sanity = fill_templates(int_config, src_lines, keep=True)
 if src_sanity != src_lines:
     import pdb
     pdb.set_trace()
     sys.exit(1)
-test_sanity = fill_templates({"primitive": "int", "boxed": "Integer"}, test_lines, keep=True)
+test_sanity = fill_templates(int_config, test_lines, keep=True)
 if test_sanity != test_lines:
     import pdb
     pdb.set_trace()
     sys.exit(1)
 
 for c in configs:
-    with open(f"{base_src_path}/CompactString{c['primitive'].title()}Map.java", "w", encoding="utf-8") as fp:
+    with open(f"{base_src_path}/CompactString{c['val']['disp']}Map.java", "w", encoding="utf-8") as fp:
         fp.write("\n".join(fill_templates(c, src_lines)))
         fp.write("\n")
 for c in configs:
-    with open(f"{base_test_path}/CompactString{c['primitive'].title()}MapTest.java", "w", encoding="utf-8") as fp:
+    with open(f"{base_test_path}/CompactString{c['val']['disp']}MapTest.java", "w", encoding="utf-8") as fp:
         fp.write("\n".join(fill_templates(c, test_lines)))
         fp.write("\n")
