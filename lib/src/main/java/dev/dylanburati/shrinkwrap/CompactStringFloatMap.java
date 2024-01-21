@@ -116,9 +116,8 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     if (!(value instanceof Float)) {
       return false;
     }
-    float needle = (Float) value;
     for (int src = 0; src < this.keys.length; src++) {
-      if ((this.keys[src] & 3) == 3 && this.values[src] == needle) {
+      if ((this.keys[src] & 3) == 3 && this.values[src] == (Float) value) {
         return true;
       }
     }
@@ -182,7 +181,7 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      float result = this.values[idx];
+      Float result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return result;
@@ -346,10 +345,10 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
     }
 
     private int getIndex() {
-      if (this.rehashCount == this.owner.rehashCount) {
+      if (this.rehashCount == owner.rehashCount) {
         return this.index;
       }
-      this.index = this.owner.rereadIndex(this.keyRef);
+      this.index = owner.rereadIndex(this.keyRef);
       if (this.index < 0) {
         throw new IllegalStateException("Entry no longer in map");
       }
@@ -359,20 +358,20 @@ public class CompactStringFloatMap extends AbstractMap<String, Float> implements
 
     @Override
     public String getKey() {
-      long keyRef = this.owner.keys[this.getIndex()];
-      return this.owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
+      long keyRef = owner.keys[this.getIndex()];
+      return owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
     }
 
     @Override
     public Float getValue() {
-      return this.owner.values[this.getIndex()];
+      return owner.values[this.getIndex()];
     }
 
     @Override
     public Float setValue(Float value) {
       int index = this.getIndex();
-      Float prev = this.owner.values[index];
-      this.owner.values[index] = value;
+      Float prev = owner.values[index];
+      owner.values[index] = value;
       return prev;
     }
 

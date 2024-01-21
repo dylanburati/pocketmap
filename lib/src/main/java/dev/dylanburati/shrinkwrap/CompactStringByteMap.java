@@ -116,9 +116,8 @@ public class CompactStringByteMap extends AbstractMap<String, Byte> implements C
     if (!(value instanceof Byte)) {
       return false;
     }
-    byte needle = (Byte) value;
     for (int src = 0; src < this.keys.length; src++) {
-      if ((this.keys[src] & 3) == 3 && this.values[src] == needle) {
+      if ((this.keys[src] & 3) == 3 && this.values[src] == (Byte) value) {
         return true;
       }
     }
@@ -182,7 +181,7 @@ public class CompactStringByteMap extends AbstractMap<String, Byte> implements C
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      byte result = this.values[idx];
+      Byte result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return result;
@@ -346,10 +345,10 @@ public class CompactStringByteMap extends AbstractMap<String, Byte> implements C
     }
 
     private int getIndex() {
-      if (this.rehashCount == this.owner.rehashCount) {
+      if (this.rehashCount == owner.rehashCount) {
         return this.index;
       }
-      this.index = this.owner.rereadIndex(this.keyRef);
+      this.index = owner.rereadIndex(this.keyRef);
       if (this.index < 0) {
         throw new IllegalStateException("Entry no longer in map");
       }
@@ -359,20 +358,20 @@ public class CompactStringByteMap extends AbstractMap<String, Byte> implements C
 
     @Override
     public String getKey() {
-      long keyRef = this.owner.keys[this.getIndex()];
-      return this.owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
+      long keyRef = owner.keys[this.getIndex()];
+      return owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
     }
 
     @Override
     public Byte getValue() {
-      return this.owner.values[this.getIndex()];
+      return owner.values[this.getIndex()];
     }
 
     @Override
     public Byte setValue(Byte value) {
       int index = this.getIndex();
-      Byte prev = this.owner.values[index];
-      this.owner.values[index] = value;
+      Byte prev = owner.values[index];
+      owner.values[index] = value;
       return prev;
     }
 

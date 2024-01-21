@@ -13,62 +13,62 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-// no extra imports
+import static dev.dylanburati.shrinkwrap.Helpers.*;
 
-class CompactStringShortMapTest {
+class CompactStringMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new CompactStringShortMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> new CompactStringMap<List<Integer>>(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    CompactStringShortMap m = new CompactStringShortMap(0);
-    assertNull(m.put("", (short)505));
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>(0);
+    assertNull(m.put("", List.of(505, 10)));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
     assertEquals(0, m.size());
-    assertNull(m.put("a", (short)505));
+    assertNull(m.put("a", List.of(505, 10)));
     assertEquals(1, m.size());
-    assertNull(m.put("b", (short)606));
-    assertEquals((short)505, m.get("a"));
-    assertEquals((short)606, m.get("b"));
+    assertNull(m.put("b", List.of(606, 12)));
+    assertEquals(List.of(505, 10), m.get("a"));
+    assertEquals(List.of(606, 12), m.get("b"));
   }
 
   @Test void testPutAll() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
     assertEquals(0, m.size());
-    assertNull(m.put("a", (short)505));
+    assertNull(m.put("a", List.of(505, 10)));
     assertEquals(1, m.size());
-    assertNull(m.put("b", (short)606));
-    CompactStringShortMap m2 = new CompactStringShortMap();
+    assertNull(m.put("b", List.of(606, 12)));
+    CompactStringMap<List<Integer>> m2 = new CompactStringMap<>();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
-    assertEquals((short)505, m.get("a"));
-    assertEquals((short)606, m.get("b"));
+    assertEquals(List.of(505, 10), m.get("a"));
+    assertEquals(List.of(606, 12), m.get("b"));
   }
 
   @Test void testInsertLongKeys() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
-      assertNull(m.put(bldr.toString(), (short)505));
+      assertNull(m.put(bldr.toString(), List.of(505, 10)));
     }
     assertEquals(4095, m.size());
     for (int i = 16; i < 65536; i += 16) {
-      assertEquals((short)505, m.get(bldr.substring(0, i)));
+      assertEquals(List.of(505, 10), m.get(bldr.substring(0, i)));
     }
   }
 
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    CompactStringShortMap m = new CompactStringShortMap(initialCapacity);
-    IntFunction<Short> toValue = (v) -> (short) v;
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>(initialCapacity);
+    IntFunction<List<Integer>> toValue = v -> List.of(v);
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
 
@@ -123,69 +123,69 @@ class CompactStringShortMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    CompactStringShortMap m = new CompactStringShortMap();
-    assertNull(m.put("a", (short)505));
-    assertEquals((short)505, m.get("a"));
-    assertEquals(m.put("a", (short)606), (short)505);
-    assertEquals((short)606, m.get("a"));
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
+    assertNull(m.put("a", List.of(505, 10)));
+    assertEquals(List.of(505, 10), m.get("a"));
+    assertEquals(m.put("a", List.of(606, 12)), List.of(505, 10));
+    assertEquals(List.of(606, 12), m.get("a"));
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    CompactStringShortMap m = new CompactStringShortMap();
-    assertNull(m.put("a", (short)505));
-    assertEquals((short)505, m.get("a"));
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
+    assertNull(m.put("a", List.of(505, 10)));
+    assertEquals(List.of(505, 10), m.get("a"));
 
-    assertNull(m.put("%($", (short)606));
-    assertEquals((short)505, m.get("a"));
-    assertEquals((short)606, m.get("%($"));
+    assertNull(m.put("%($", List.of(606, 12)));
+    assertEquals(List.of(505, 10), m.get("a"));
+    assertEquals(List.of(606, 12), m.get("%($"));
 
-    assertNull(m.put("?/4-AW\u0000", (short)707));
-    assertEquals((short)505, m.get("a"));
-    assertEquals((short)606, m.get("%($"));
-    assertEquals((short)707, m.get("?/4-AW\u0000"));
+    assertNull(m.put("?/4-AW\u0000", List.of(707, 14)));
+    assertEquals(List.of(505, 10), m.get("a"));
+    assertEquals(List.of(606, 12), m.get("%($"));
+    assertEquals(List.of(707, 14), m.get("?/4-AW\u0000"));
 
-    assertEquals((short)505, m.remove("a"));
-    assertEquals((short)606, m.get("%($"));
-    assertEquals((short)707, m.get("?/4-AW\u0000"));
+    assertEquals(List.of(505, 10), m.remove("a"));
+    assertEquals(List.of(606, 12), m.get("%($"));
+    assertEquals(List.of(707, 14), m.get("?/4-AW\u0000"));
 
-    assertNull(m.put("a", (short)505));
-    assertEquals((short)505, m.get("a"));
+    assertNull(m.put("a", List.of(505, 10)));
+    assertEquals(List.of(505, 10), m.get("a"));
   }
 
   @Test void testIsEmpty() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
     assertTrue(m.isEmpty());
-    assertNull(m.put("a", (short)505));
+    assertNull(m.put("a", List.of(505, 10)));
     assertFalse(m.isEmpty());
-    assertEquals((short)505, m.remove("a"));
+    assertEquals(List.of(505, 10), m.remove("a"));
     assertTrue(m.isEmpty());
   }
 
   @Test void testRemove() {
-    CompactStringShortMap m = new CompactStringShortMap();
-    assertNull(m.put("a", (short)505));
-    assertEquals((short)505, m.remove("a"));
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
+    assertNull(m.put("a", List.of(505, 10)));
+    assertEquals(List.of(505, 10), m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    CompactStringShortMap m = new CompactStringShortMap();
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    CompactStringShortMap m = new CompactStringShortMap(8);
-    List<Short> values = Stream.generate(() -> List.of((short)505, (short)606, (short)707, (short)808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
-    for (Short v : values) {
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>(8);
+    List<List<Integer>> values = Stream.generate(() -> List.of(List.of(505, 10), List.of(606, 12), List.of(707, 14), List.of(808, 16))).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    for (List<Integer> v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
     long observed = 0;
-    for (Entry<String, Short> e : m.entrySet()) {
+    for (Entry<String, List<Integer>> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
@@ -197,17 +197,17 @@ class CompactStringShortMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    CompactStringShortMap m = new CompactStringShortMap(8);
-    List<Short> values = Stream.generate(() -> List.of((short)505, (short)606, (short)707, (short)808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
+    CompactStringMap<List<Integer>> m = new CompactStringMap<>(8);
+    List<List<Integer>> values = Stream.generate(() -> List.of(List.of(505, 10), List.of(606, 12), List.of(707, 14), List.of(808, 16))).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
-    for (Short v : values) {
+    for (List<Integer> v : values) {
       String k = Integer.toString(m.size());
       assertNull(m.put(k, v));
     }
     assertEquals(32, m.size());
 
-    for (Iterator<Entry<String, Short>> it = m.entrySet().iterator(); it.hasNext(); ) {
-      Entry<String, Short> e = it.next();
+    for (Iterator<Entry<String, List<Integer>>> it = m.entrySet().iterator(); it.hasNext(); ) {
+      Entry<String, List<Integer>> e = it.next();
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       if (k % 2 == 0) {
@@ -217,22 +217,22 @@ class CompactStringShortMapTest {
     assertEquals(16, m.size());
 
     long observed = 0;
-    for (Entry<String, Short> e : m.entrySet()) {
+    for (Entry<String, List<Integer>> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
       assertEquals(values.get(k), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;
 
-      e.setValue((short) -e.getValue());
+      e.setValue(reversed(e.getValue()));
     }
 
     assertEquals(0xAAAA_AAAAL, observed);
 
     observed = 0;
-    for (Entry<String, Short> e : m.entrySet()) {
+    for (Entry<String, List<Integer>> e : m.entrySet()) {
       int k = Integer.valueOf(e.getKey());
-      assertEquals((short) -values.get(k), e.getValue());
+      assertEquals(reversed(values.get(k)), e.getValue());
       long mask = 1L << k;
       assertEquals(0L, observed & mask, String.format("unexpected second occurence of %s", e.getKey()));
       observed |= mask;

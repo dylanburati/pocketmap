@@ -6,14 +6,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-// import java.util.Arrays;
-// import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+// no extra imports
 
 class CompactStringFloatMapTest {
   @Test void testCreateNegativeCapacity() {

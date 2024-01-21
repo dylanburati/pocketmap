@@ -111,32 +111,31 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     if (!(key instanceof String)) {
       return false;
     }
-    /* template! if (!(value instanceof \(.val.view))) { */
+    /* template(3)! \(if .val.object then "" else "if (!(value instanceof \(.val.view))) {\n  return false;\n}" end) */
     if (!(value instanceof Integer)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    /* template! return idx >= 0 && \([.val.object, "this.values[idx]", "(\(.val.view)) value"] | equals); */
+    /* template! return idx >= 0 && \([.val.object, "this.values[idx]", "value", .val.view] | equals); */
     return idx >= 0 && this.values[idx] == (Integer) value;
   }
 
   @Override
   public boolean containsValue(Object value) {
-    /* template! if (!(value instanceof \(.val.view))) { */
+    /* template(3)! \(if .val.object then "" else "if (!(value instanceof \(.val.view))) {\n  return false;\n}" end) */
     if (!(value instanceof Integer)) {
       return false;
     }
-    /* template! \(.val.t) needle = (\(.val.view)) value; */
-    int needle = (Integer) value;
     for (int src = 0; src < this.keys.length; src++) {
-      /* template! if ((this.keys[src] & 3) == 3 && \([.val.object, "this.values[src]", "needle"] | equals)) { */
-      if ((this.keys[src] & 3) == 3 && this.values[src] == needle) {
+      /* template! if ((this.keys[src] & 3) == 3 && \([.val.object, "this.values[src]", "value", .val.view] | equals)) { */
+      if ((this.keys[src] & 3) == 3 && this.values[src] == (Integer) value) {
         return true;
       }
     }
     return false;
   }
+  /* template(0)! \(if .val.object then "@SuppressWarnings(\"unchecked\")\nprivate static <V> V castUnsafe(Object v) {\n  return (V) v;\n}" else "" end) */
 
   /* template(2)! @Override\npublic \(.val.view) get(Object key) { */
   @Override
@@ -149,6 +148,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     if (idx < 0) {
       return null;
     }
+    /* template! return \([.val.object, "this.values[idx]"] | castUnsafe); */
     return this.values[idx];
   }
 
@@ -159,7 +159,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      /* template! \(.val.view) prev = this.values[idx]; */
+      /* template! \(.val.view) prev = \([.val.object, "this.values[idx]"] | castUnsafe); */
       Integer prev = this.values[idx];
       this.values[idx] = value;
       return prev;
@@ -199,8 +199,8 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
     if (idx >= 0) {
-      /* template! \(.val.t) result = this.values[idx]; */
-      int result = this.values[idx];
+      /* template! \(.val.view) result = \([.val.object, "this.values[idx]"] | castUnsafe); */
+      Integer result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
       return result;
@@ -214,13 +214,13 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     if (!(key instanceof String)) {
       return false;
     }
-    /* template! if (!(value instanceof \(.val.view))) { */
+    /* template(3)! \(if .val.object then "" else "if (!(value instanceof \(.val.view))) {\n  return false;\n}" end) */
     if (!(value instanceof Integer)) {
       return false;
     }
     byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
     int idx = this.readIndex(keyContent);
-    /* template! if (idx >= 0 && \([.val.object, "this.values[idx]", "(\(.val.view)) value"] | equals)) { */
+    /* template! if (idx >= 0 && \([.val.object, "this.values[idx]", "value", .val.view] | equals)) { */
     if (idx >= 0 && this.values[idx] == (Integer) value) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
       this.removeByIndex(idx);
@@ -254,12 +254,14 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   /* template(2)! @Override\npublic Collection<\(.val.view)> values() { */
   @Override
   public Collection<Integer> values() {
+    /* template! return new Values\(.val.generic_infer//"")(this); */
     return new Values(this);
   }
 
   /* template(2)! @Override\npublic Set<Entry<String, \(.val.view)>> entrySet() { */
   @Override
   public Set<Entry<String, Integer>> entrySet() {
+    /* template! return new EntrySet\(.val.generic_infer//"")(this); */
     return new EntrySet(this);
   }
 
@@ -278,7 +280,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       // INVARIANT 2b upheld: zero tombstones, keysClone[i] has low bits == 0 otherwise
     }
 
-    /* template! return new CompactString\(.val.disp)Map(newKeyStorage, keysClone, valuesClone, this.size); */
+    /* template! return new CompactString\(.val.disp)Map\(.val.generic_infer//"")(newKeyStorage, keysClone, valuesClone, this.size); */
     return new CompactStringIntMap(newKeyStorage, keysClone, valuesClone, this.size);
   }
 
@@ -286,7 +288,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
   protected static class KeySet extends AbstractSet<String> {
-    /* template(2)! private final CompactString\(.val.disp)Map owner;\nprotected KeySet(final CompactString\(.val.disp)Map owner) { */
+    /* template(2)! private final CompactString\(.val.disp)Map\(.val.generic_any//"") owner;\nprotected KeySet(final CompactString\(.val.disp)Map\(.val.generic_any//"") owner) { */
     private final CompactStringIntMap owner;
     protected KeySet(final CompactStringIntMap owner) {
       this.owner = owner;
@@ -299,6 +301,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       owner.clear();
     }
     public final Iterator<String> iterator() {
+      /* template! return new KeyIterator\(.val.generic_infer//"")(owner); */
       return new KeyIterator(owner);
     }
     public final boolean contains(Object o) {
@@ -324,9 +327,9 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class Values extends AbstractCollection<\(.val.view)> { */
+  /* template! protected static class Values\(.val.generic//"") extends AbstractCollection<\(.val.view)> { */
   protected static class Values extends AbstractCollection<Integer> {
-    /* template(2)! private final CompactString\(.val.disp)Map owner;\nprotected Values(final CompactString\(.val.disp)Map owner) { */
+    /* template(2)! private final CompactString\(.val.disp)Map\(.val.generic//"") owner;\nprotected Values(final CompactString\(.val.disp)Map\(.val.generic//"") owner) { */
     private final CompactStringIntMap owner;
     protected Values(final CompactStringIntMap owner) {
       this.owner = owner;
@@ -340,6 +343,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
     /* template! public final Iterator<\(.val.view)> iterator() { */
     public final Iterator<Integer> iterator() {
+      /* template! return new ValueIterator\(.val.generic_infer//"")(owner); */
       return new ValueIterator(owner);
     }
     public final boolean contains(Object o) {
@@ -354,6 +358,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
         if ((owner.keys[src] & 3) == 3) {
+          /* template! action.accept(\([.val.object, "owner.values[src]"] | castUnsafe)); */
           action.accept(owner.values[src]);
         }
       }
@@ -363,15 +368,15 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class Node implements Map.Entry<String, \(.val.view)> { */
+  /* template! protected static class Node\(.val.generic//"") implements Map.Entry<String, \(.val.view)> { */
   protected static class Node implements Map.Entry<String, Integer> {
-    /* template! private final CompactString\(.val.disp)Map owner; */
+    /* template! private final CompactString\(.val.disp)Map\(.val.generic//"") owner; */
     private final CompactStringIntMap owner;
     private final long keyRef;
     private int index;
     private int rehashCount;
 
-    /* template! protected Node(CompactString\(.val.disp)Map owner, int index) { */
+    /* template! protected Node(CompactString\(.val.disp)Map\(.val.generic//"") owner, int index) { */
     protected Node(CompactStringIntMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
@@ -380,10 +385,10 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
 
     private int getIndex() {
-      if (this.rehashCount == this.owner.rehashCount) {
+      if (this.rehashCount == owner.rehashCount) {
         return this.index;
       }
-      this.index = this.owner.rereadIndex(this.keyRef);
+      this.index = owner.rereadIndex(this.keyRef);
       if (this.index < 0) {
         throw new IllegalStateException("Entry no longer in map");
       }
@@ -393,23 +398,24 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
 
     @Override
     public String getKey() {
-      long keyRef = this.owner.keys[this.getIndex()];
-      return this.owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
+      long keyRef = owner.keys[this.getIndex()];
+      return owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
     }
 
     /* template(2)! @Override\npublic \(.val.view) getValue() { */
     @Override
     public Integer getValue() {
-      return this.owner.values[this.getIndex()];
+      /* template! return \([.val.object, "owner.values[this.getIndex()]"] | castUnsafe); */
+      return owner.values[this.getIndex()];
     }
 
     /* template(2)! @Override\npublic \(.val.view) setValue(\(.val.view) value) { */
     @Override
     public Integer setValue(Integer value) {
       int index = this.getIndex();
-      /* template! \(.val.view) prev = this.owner.values[index]; */
-      Integer prev = this.owner.values[index];
-      this.owner.values[index] = value;
+      /* template! \(.val.view) prev = \([.val.object, "owner.values[index]"] | castUnsafe); */
+      Integer prev = owner.values[index];
+      owner.values[index] = value;
       return prev;
     }
 
@@ -428,9 +434,9 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class EntrySet extends AbstractSet<Map.Entry<String, \(.val.view)>> { */
+  /* template! protected static class EntrySet\(.val.generic//"") extends AbstractSet<Map.Entry<String, \(.val.view)>> { */
   protected static class EntrySet extends AbstractSet<Map.Entry<String, Integer>> {
-    /* template(2)! private final CompactString\(.val.disp)Map owner;\nprotected EntrySet(final CompactString\(.val.disp)Map owner) { */
+    /* template(2)! private final CompactString\(.val.disp)Map\(.val.generic//"") owner;\nprotected EntrySet(final CompactString\(.val.disp)Map\(.val.generic//"") owner) { */
     private final CompactStringIntMap owner;
     protected EntrySet(final CompactStringIntMap owner) {
       this.owner = owner;
@@ -444,6 +450,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
     /* template! public final Iterator<Map.Entry<String, \(.val.view)>> iterator() { */
     public final Iterator<Map.Entry<String, Integer>> iterator() {
+      /* template! return new EntryIterator\(.val.generic_infer//"")(owner); */
       return new EntryIterator(owner);
     }
 
@@ -467,6 +474,7 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
         if ((owner.keys[src] & 3) == 3) {
+          /* template! action.accept(new Node\(.val.generic_infer//"")(owner, src)); */
           action.accept(new Node(owner, src));
         }
       }
@@ -476,14 +484,15 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
+  /* template! protected static abstract class HashIterator\(.val.generic//"") { */
   protected static abstract class HashIterator {
-    /* template! protected final CompactString\(.val.disp)Map owner; */
+    /* template! protected final CompactString\(.val.disp)Map\(.val.generic//"") owner; */
     protected final CompactStringIntMap owner;
     private final int rehashCount;
     private int index;
     private int nextIndex;
 
-    /* template! protected HashIterator(final CompactString\(.val.disp)Map owner) { */
+    /* template! protected HashIterator(final CompactString\(.val.disp)Map\(.val.generic//"") owner) { */
     protected HashIterator(final CompactStringIntMap owner) {
       this.owner = owner;
       this.rehashCount = owner.rehashCount;
@@ -527,8 +536,9 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
+  /* template! protected static class KeyIterator\(.val.generic//"") extends HashIterator\(.val.generic//"") implements Iterator<String> { */
   protected static class KeyIterator extends HashIterator implements Iterator<String> {
-    /* template! protected KeyIterator(final CompactString\(.val.disp)Map owner) { */
+    /* template! protected KeyIterator(final CompactString\(.val.disp)Map\(.val.generic//"") owner) { */
     protected KeyIterator(final CompactStringIntMap owner) {
       super(owner);
     }
@@ -538,28 +548,30 @@ public class CompactStringIntMap extends AbstractMap<String, Integer> implements
     }
   }
 
-  /* template! protected static class ValueIterator extends HashIterator implements Iterator<\(.val.view)> { */
+  /* template! protected static class ValueIterator\(.val.generic//"") extends HashIterator\(.val.generic//"") implements Iterator<\(.val.view)> { */
   protected static class ValueIterator extends HashIterator implements Iterator<Integer> {
-    /* template! protected ValueIterator(final CompactString\(.val.disp)Map owner) { */
+    /* template! protected ValueIterator(final CompactString\(.val.disp)Map\(.val.generic//"") owner) { */
     protected ValueIterator(final CompactStringIntMap owner) {
       super(owner);
     }
     /* template! public final \(.val.view) next() { */
     public final Integer next() {
       int idx = this.advance();
+      /* template! return \([.val.object, "owner.values[idx]"] | castUnsafe); */
       return owner.values[idx];
     }
   }
 
-  /* template! protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, \(.val.view)>> { */
+  /* template! protected static class EntryIterator\(.val.generic//"") extends HashIterator\(.val.generic//"") implements Iterator<Map.Entry<String, \(.val.view)>> { */
   protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Integer>> {
-    /* template! protected EntryIterator(final CompactString\(.val.disp)Map owner) { */
+    /* template! protected EntryIterator(final CompactString\(.val.disp)Map\(.val.generic//"") owner) { */
     protected EntryIterator(final CompactStringIntMap owner) {
       super(owner);
     }
     /* template! public final Map.Entry<String, \(.val.view)> next() { */
     public final Map.Entry<String, Integer> next() {
       int idx = this.advance();
+      /* template! return new Node\(.val.generic_infer//"")(owner, idx); */
       return new Node(owner, idx);
     }
   }

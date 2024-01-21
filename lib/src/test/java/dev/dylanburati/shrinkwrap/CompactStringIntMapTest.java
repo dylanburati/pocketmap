@@ -6,10 +6,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/* template! \(if .val.object then "" else "// " end)import java.util.Arrays; */
-// import java.util.Arrays;
-/* template! \(if .val.object then "" else "// " end)import java.util.Collections; */
-// import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -17,17 +13,20 @@ import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/* template! \(.test_imports//"// no extra imports") */
+// no extra imports
+
 /* template_all! [505, 606, 707, 808] */
 /* template! class CompactString\(.val.disp)MapTest { */
 class CompactStringIntMapTest {
   @Test void testCreateNegativeCapacity() {
-    /* template! assertThrows(IllegalArgumentException.class, () -> new CompactString\(.val.disp)Map(-1)); */
+    /* template! assertThrows(IllegalArgumentException.class, () -> new CompactString\(.val.disp)Map\(.val.generic//"")(-1)); */
     assertThrows(IllegalArgumentException.class, () -> new CompactStringIntMap(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(0); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(0); */
     CompactStringIntMap m = new CompactStringIntMap(0);
     assertNull(m.put("", 505));
     assertTrue(m.containsKey(""));
@@ -35,7 +34,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testInsert() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     assertEquals(0, m.size());
     assertNull(m.put("a", 505));
@@ -46,13 +45,13 @@ class CompactStringIntMapTest {
   }
 
   @Test void testPutAll() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     assertEquals(0, m.size());
     assertNull(m.put("a", 505));
     assertEquals(1, m.size());
     assertNull(m.put("b", 606));
-    /* template! CompactString\(.val.disp)Map m2 = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m2 = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m2 = new CompactStringIntMap();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
@@ -61,7 +60,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
@@ -77,7 +76,7 @@ class CompactStringIntMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(initialCapacity); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(initialCapacity); */
     CompactStringIntMap m = new CompactStringIntMap(initialCapacity);
     /* template! IntFunction<\(.val.view)> toValue = \(.intLambda); */
     IntFunction<Integer> toValue = (v) -> v;
@@ -135,7 +134,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     assertNull(m.put("a", 505));
     assertEquals(505, m.get("a"));
@@ -144,7 +143,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     assertNull(m.put("a", 505));
     assertEquals(505, m.get("a"));
@@ -167,7 +166,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testIsEmpty() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", 505));
@@ -177,7 +176,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testRemove() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     assertNull(m.put("a", 505));
     assertEquals(505, m.remove("a"));
@@ -185,7 +184,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testEmptyIterators() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(); */
     CompactStringIntMap m = new CompactStringIntMap();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
@@ -193,7 +192,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testEntryIterator() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(8); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(8); */
     CompactStringIntMap m = new CompactStringIntMap(8);
     /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
     List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
@@ -218,7 +217,7 @@ class CompactStringIntMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    /* template! CompactString\(.val.disp)Map m = new CompactString\(.val.disp)Map(8); */
+    /* template! CompactString\(.val.disp)Map\(.val.generic//"") m = new CompactString\(.val.disp)Map\(.val.generic_infer//"")(8); */
     CompactStringIntMap m = new CompactStringIntMap(8);
     /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
     List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
