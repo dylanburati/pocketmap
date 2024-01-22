@@ -11,6 +11,9 @@ import java.util.TreeMap;
 
 import com.github.luben.zstd.ZstdInputStream;
 
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -36,6 +39,14 @@ public class StringIntMapBenchmark {
   @BenchmarkMode(Mode.SingleShotTime)
   public void bigramsTreeMap(Blackhole bh) {
     bh.consume(bigrams(new TreeMap<>()));
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.SingleShotTime)
+  public void bigramsMapDBMap(Blackhole bh) {
+    DB db = DBMaker.memoryDB().make();
+    bh.consume(bigrams(db.hashMap("map", Serializer.STRING, Serializer.INTEGER).createOrOpen()));
+    db.close();
   }
 
   public int bigrams(Map<String, Integer> m) {

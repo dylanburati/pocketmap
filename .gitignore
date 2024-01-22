@@ -30,7 +30,9 @@ target/
 
 .settings/
 .classpath
+.factorypath
 /.project
-lib/.project
+benchmarks/.project
+pocketmap/.project
 
 **/resources/*.zst
