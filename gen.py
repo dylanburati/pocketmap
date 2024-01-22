@@ -1,4 +1,3 @@
-import contextlib
 import itertools
 import json
 import subprocess
@@ -73,11 +72,11 @@ test_only_configs = [
     }
 ]
 
-base_src_path = "lib/src/main/java/dev/dylanburati/pocketmap"
+base_src_path = "pocketmap/src/main/java/dev/dylanburati/pocketmap"
 with open(f"{base_src_path}/IntPocketMap.java", "r", encoding="utf-8") as fp:
     src_lines = [line.rstrip() for line in fp.readlines()]
 
-base_test_path = "lib/src/test/java/dev/dylanburati/pocketmap"
+base_test_path = "pocketmap/src/test/java/dev/dylanburati/pocketmap"
 with open(
     f"{base_test_path}/IntPocketMapTest.java", "r", encoding="utf-8"
 ) as fp:
