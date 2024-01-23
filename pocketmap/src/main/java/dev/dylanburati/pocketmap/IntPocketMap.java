@@ -33,6 +33,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
+  // INVARIANT 0: keys.length is a power of 2
   // INVARIANT 1: keys.length == values.length
   private long[] keys;
   /* template! private \(.val.t)[] values; */
@@ -690,7 +691,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
 
   /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
   private int insertionIndex(byte[] keyContent) {
-    int h = (this.hasher.hashBytes(keyContent) & 0x7fff_ffff) % this.keys.length;
+    int h = this.hasher.hashBytes(keyContent) & (this.keys.length - 1);
     int distance = 1;
     while ((keys[h] & 3) == 3) {
       h = (h + distance) % this.keys.length;
@@ -701,7 +702,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
 
   /** Index of given key array's first empty/tombstone slot in quadratic probe starting from hashAt(keyRef) */
   private int reinsertionIndex(long[] keys, long keyRef) {
-    int h = (this.keyStorage.hashAt(keyRef) & 0x7fff_ffff) % keys.length;
+    int h = this.keyStorage.hashAt(keyRef) & (keys.length - 1);
     int distance = 1;
     while ((keys[h] & 3) == 3) {
       h = (h + distance) % keys.length;
@@ -747,7 +748,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
 
   // used by Node to refresh its known index on the first access after a rehash
   private int rereadIndex(long keyRef) {
-    int h = (this.keyStorage.hashAt(keyRef) & 0x7fff_ffff) % keys.length;
+    int h = this.keyStorage.hashAt(keyRef) & (keys.length - 1);
     int distance = 1;
     while ((keys[h] & 3) == 3) {
       if (keys[h] == keyRef) {
@@ -795,6 +796,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   private boolean maybeSetCapacity() {
     int cap = this.keys.length;
     if (this.size + this.tombstoneCount + 1 > cap * 7 / 8) {
+      // INVARIANT 0 upheld: we either double or remain the same
       if (this.size + 1 > cap * 3 / 4) {
         this.setCapacity(cap << 1);
       } else {

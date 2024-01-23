@@ -41,13 +41,13 @@ public class StringIntMapBenchmark {
     bh.consume(bigrams(new TreeMap<>()));
   }
 
-  @Benchmark
-  @BenchmarkMode(Mode.SingleShotTime)
-  public void bigramsMapDBMap(Blackhole bh) {
-    DB db = DBMaker.memoryDB().make();
-    bh.consume(bigrams(db.hashMap("map", Serializer.STRING, Serializer.INTEGER).createOrOpen()));
-    db.close();
-  }
+  //@Benchmark
+  //@BenchmarkMode(Mode.SingleShotTime)
+  //public void bigramsMapDBMap(Blackhole bh) {
+    //DB db = DBMaker.memoryDB().make();
+    //bh.consume(bigrams(db.hashMap("map", Serializer.STRING, Serializer.INTEGER).createOrOpen()));
+    //db.close();
+  //}
 
   public int bigrams(Map<String, Integer> m) {
     String last = null;
