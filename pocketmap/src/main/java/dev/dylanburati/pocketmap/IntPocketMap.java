@@ -718,8 +718,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
    * <ul>
    * <li> {@code index} when key found
    * <li> {@code -index - 1} when an empty slot is found; the index refers to the first tombstone found
-   *   if any, otherwise 
-   * 
+   *   if any, otherwise the empty slot
    */
   private int readIndex(byte[] keyContent) {
     int h = (this.hasher.hashBytes(keyContent) & 0x7fff_ffff) % this.keys.length;
