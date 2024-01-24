@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import static dev.dylanburati.pocketmap.KeyStorage.*;
 
 /* template(2)! /**\n * Hash map from strings to \(.val.t)s which minimizes memory overhead at large sizes. */ 
 /**
@@ -40,9 +41,9 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   private int[] values;
 
   // INVARIANT 2:
-  //  2A: size           == count [k | k in keys, (k & 3) == 3]
-  //  2B: tombstoneCount == count [k | k in keys, (k & 3) == 1]
-  //  2C: 0              == count [k | k in keys, (k & 3) == 2]
+  //  2A: size           == count [k | k in keys, (k & 255) >= 128]
+  //  2B: tombstoneCount == count [k | k in keys, (k & 255) == 1]
+  //  2C: 0              == count [k | k in keys, (k & 255) in 2..=127]
   private int size;
   private int tombstoneCount;
   private int rehashCount;
@@ -131,8 +132,8 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
       return false;
     }
     for (int src = 0; src < this.keys.length; src++) {
-      /* template! if ((this.keys[src] & 3) == 3 && \([.val.object, "this.values[src]", "value", .val.view] | equals)) { */
-      if ((this.keys[src] & 3) == 3 && this.values[src] == (Integer) value) {
+      /* template! if ((this.keys[src] & ALIVE_FLAG) == ALIVE_FLAG && \([.val.object, "this.values[src]", "value", .val.view] | equals)) { */
+      if ((this.keys[src] & ALIVE_FLAG) == ALIVE_FLAG && this.values[src] == (Integer) value) {
         return true;
       }
     }
@@ -176,7 +177,8 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   /* template! private \(.val.view) putImpl(String key, \(.val.view) value, boolean shouldReplace) { */
   private Integer putImpl(String key, Integer value, boolean shouldReplace) {
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    int hash = this.hasher.hashBytes(keyContent);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
     if (idx >= 0) {
       /* template! \(.val.view) prev = \([.val.object, "this.values[idx]"] | castUnsafe); */
       Integer prev = this.values[idx];
@@ -185,7 +187,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
       }
       return prev;
     }
-    this.insertByIndex(-idx - 1, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
     return null;
   }
 
@@ -227,7 +229,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     if (idx >= 0) {
       /* template! \(.val.view) result = \([.val.object, "this.values[idx]"] | castUnsafe); */
       Integer result = this.values[idx];
-      // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
+      // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
       this.removeByIndex(idx);
       return result;
     }
@@ -248,7 +250,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     int idx = this.readIndex(keyContent);
     /* template! if (idx >= 0 && \([.val.object, "this.values[idx]", "value", .val.view] | equals)) { */
     if (idx >= 0 && this.values[idx] == (Integer) value) {
-      // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & 3) == 3
+      // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
       this.removeByIndex(idx);
       return true;
     }
@@ -277,7 +279,8 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   private Integer computeImpl(String key, BiFunction<? super String, ? super Integer, ? extends Integer> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
     Objects.requireNonNull(remappingFunction);
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    int hash = this.hasher.hashBytes(keyContent);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
     if (idx >= 0) {
       /* template! \(.val.view) result = null; */
       Integer result = null;
@@ -300,7 +303,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     if (value == null) {
       return null;
     }
-    this.insertByIndex(-idx - 1, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
     return value;
   }
 
@@ -310,7 +313,8 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     Objects.requireNonNull(remappingFunction);
     Objects.requireNonNull(value);
     byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    int hash = this.hasher.hashBytes(keyContent);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
     if (idx >= 0) {
       /* template! \(.val.view) result = remappingFunction.apply(\([.val.object, "this.values[idx]"] | castUnsafe), value); */
       Integer result = remappingFunction.apply(this.values[idx], value);
@@ -321,7 +325,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
       }
       return result;
     }
-    this.insertByIndex(-idx - 1, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
     return value;
   }
 
@@ -339,7 +343,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   public void replaceAll(BiFunction<? super String, ? super Integer, ? extends Integer> function) {
     Objects.requireNonNull(function);
     for (int i = 0; i < this.keys.length; i++) {
-      if ((this.keys[i] & 3) == 3) {
+      if ((this.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
         String k = this.keyStorage.loadAsString(this.keys[i], StandardCharsets.UTF_8);
         /* template! this.values[i] = function.apply(k, \([.val.object, "this.values[i]"] | castUnsafe)); */
         this.values[i] = function.apply(k, this.values[i]);
@@ -382,7 +386,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     int[] valuesClone = Arrays.copyOf(this.values, this.values.length);
     KeyStorage newKeyStorage = new KeyStorage(this.hasher);
     for (int i = 0; i < this.keys.length; i++) {
-      if ((this.keys[i] & 3) == 3) {
+      if ((this.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
         // INVARIANT 2a upheld: equal size, keysClone[i] has low bits == 3 IFF keys[i] does
         keysClone[i] = newKeyStorage.copyFrom(this.keyStorage, this.keys[i]);
       }
@@ -426,7 +430,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
       }
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
-        if ((owner.keys[src] & 3) == 3) {
+        if ((owner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
           action.accept(owner.keyStorage.loadAsString(owner.keys[src], StandardCharsets.UTF_8));
         }
       }
@@ -466,7 +470,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
       }
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
-        if ((owner.keys[src] & 3) == 3) {
+        if ((owner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
           /* template! action.accept(\([.val.object, "owner.values[src]"] | castUnsafe)); */
           action.accept(owner.values[src]);
         }
@@ -583,7 +587,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
       }
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
-        if ((owner.keys[src] & 3) == 3) {
+        if ((owner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
           /* template! action.accept(new Node\(.val.generic_infer//"")(owner, src)); */
           action.accept(new Node(owner, src));
         }
@@ -615,7 +619,7 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
         throw new ConcurrentModificationException();
       }
       for (int src = start; src < owner.keys.length; src++) {
-        if ((owner.keys[src] & 3) == 3) {
+        if ((owner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
           return src;
         }
       }
@@ -690,22 +694,11 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
   /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
-  private int insertionIndex(byte[] keyContent) {
-    int h = this.hasher.hashBytes(keyContent) & (this.keys.length - 1);
+  private int insertionIndex(long[] keys, int hashUpper) {
+    int h = hashUpper & (keys.length - 1);
     int distance = 1;
-    while ((keys[h] & 3) == 3) {
-      h = (h + distance) % this.keys.length;
-      distance++;
-    }
-    return h;
-  }
-
-  /** Index of given key array's first empty/tombstone slot in quadratic probe starting from hashAt(keyRef) */
-  private int reinsertionIndex(long[] keys, long keyRef) {
-    int h = this.keyStorage.hashAt(keyRef) & (keys.length - 1);
-    int distance = 1;
-    while ((keys[h] & 3) == 3) {
-      h = (h + distance) % keys.length;
+    while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
+      h = (h + distance) & (keys.length - 1);
       distance++;
     }
     return h;
@@ -721,23 +714,22 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
    * <li> {@code -index - 1} when an empty slot is found; the index refers to the first tombstone found
    *   if any, otherwise the empty slot
    */
-  private int readIndex(byte[] keyContent) {
-    int h = (this.hasher.hashBytes(keyContent) & 0x7fff_ffff) % this.keys.length;
+  private int readIndex(int hashUpper, int hashLower, byte[] keyContent) {
+    int h = hashUpper & (this.keys.length - 1);
     int distance = 1;
     int firstTombstone = -1;
-    while ((this.keys[h] & 1) == 1) {
-      if ((this.keys[h] & 2) == 0) {
+    while ((this.keys[h] & ALIVE_H2_MASK) > 0) {
+      if ((this.keys[h] & ALIVE_FLAG) == 0) {
         // Tombstone
         firstTombstone = firstTombstone < 0 ? h : firstTombstone;
-        h = (h + distance) % this.keys.length;
+        h = (h + distance) & (this.keys.length - 1);
         distance++;
         continue;
       }
-      // Live entry, (this.keys[h] & 3) == 3
-      if (this.keyStorage.equalsAt(this.keys[h], keyContent)) {
+      if ((this.keys[h] & H2_MASK) == hashLower && this.keyStorage.equalsAt(this.keys[h], keyContent)) {
         return h;
       }
-      h = (h + distance) % this.keys.length;
+      h = (h + distance) & (this.keys.length - 1);
       distance++;
     }
     if (firstTombstone >= 0) {
@@ -746,15 +738,21 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     return -h - 1;
   }
 
+  private int readIndex(byte[] keyContent) {
+    int hash = this.hasher.hashBytes(keyContent);
+    return this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+  }
+
   // used by Node to refresh its known index on the first access after a rehash
   private int rereadIndex(long keyRef) {
-    int h = this.keyStorage.hashAt(keyRef) & (keys.length - 1);
+    int hash = this.keyStorage.hashAt(keyRef);
+    int h = (hash >>> H2_BITS) & (keys.length - 1);
     int distance = 1;
-    while ((keys[h] & 3) == 3) {
+    while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
       if (keys[h] == keyRef) {
         return h;
       }
-      h = (h + distance) % keys.length;
+      h = (h + distance) & (keys.length - 1);
       distance++;
     }
     return -1;
@@ -766,14 +764,14 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
    * {@code idx} is not guaranteed to be the real insertion index, as it is recalculated if 
    * we resize or purge tombstones.
    */
-  /* template! private void insertByIndex(int idx, byte[] keyContent, \(.val.t) value) { */
-  private void insertByIndex(int idx, byte[] keyContent, int value) {
+  /* template! private void insertByIndex(int idx, int hashUpper, int hashLower, byte[] keyContent, \(.val.t) value) { */
+  private void insertByIndex(int idx, int hashUpper, int hashLower, byte[] keyContent, int value) {
     boolean isTombstone = (this.keys[idx] & 1) == 1;
     if (!isTombstone && this.maybeSetCapacity()) {
-      idx = this.insertionIndex(keyContent);
+      idx = this.insertionIndex(this.keys, hashUpper);
       isTombstone = false;  // no tombstones following resize
     }
-    long keyRef = this.keyStorage.store(keyContent);
+    long keyRef = this.keyStorage.store(keyContent, hashLower);
     this.keys[idx] = keyRef;
     this.values[idx] = value;
     this.size++;
@@ -782,10 +780,10 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     }
   }
 
-  /** INVARIANT 2 upheld WHEN this.keys[idx] has low bits == 3 prior to calling */
+  /** INVARIANT 2 upheld WHEN this.keys[idx] has ALIVE_FLAG prior to calling */
   private void removeByIndex(int idx) {
-    // flip tombstone flag bit
-    this.keys[idx] ^= 2;
+    // set alive bit 0, hash to 1 so not treated as empty
+    this.keys[idx] ^= (this.keys[idx] ^ 0x01) & ALIVE_H2_MASK;
     /* template! \(if .val.object then "" else "// " end)this.values[idx] = null; */
     // this.values[idx] = null;
     this.size--;
@@ -813,11 +811,12 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
     /* template! \(.val.t)[] nextValues = new \(.val.t)[cap]; */
     int[] nextValues = new int[cap];
     for (int src = 0; src < this.keys.length; src++) {
-      if ((this.keys[src] & 3) == 3) {
+      if ((this.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
         // INVARIANT 2a upheld: this condition is true for `size` iterations, and each time
-        // the keyRef with low bits == 3 is copied to a **different index** in nextKeys
-        //   - reinsertionIndex only returns idx with (keys[idx] & 3 != 3)
-        int idx = this.reinsertionIndex(nextKeys, this.keys[src]);
+        // the keyRef with ALIVE_FLAG is copied to a **different index** in nextKeys
+        //   - insertionIndex only returns idx with (keys[idx] & ALIVE_FLAG) == 0
+        int hash = this.keyStorage.hashAt(this.keys[src]);
+        int idx = this.insertionIndex(nextKeys, hash >>> H2_BITS);
         nextKeys[idx] = this.keys[src];
         nextValues[idx] = this.values[src];
       }

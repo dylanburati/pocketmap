@@ -7,6 +7,11 @@ import java.util.Arrays;
 import java.util.List;
 
 /* package-private */ class KeyStorage {
+  static final int H2_BITS = 7;
+  static final int ALIVE_FLAG = 1 << H2_BITS;
+  static final int H2_MASK = ALIVE_FLAG - 1;
+  static final int ALIVE_H2_MASK = ALIVE_FLAG | H2_MASK;
+
   static final int KEY_OFFSET_BITS = 22;
   static final int BUF_SIZE = 1 << KEY_OFFSET_BITS; // 4 MiB
   static final int KEY_OFFSET_MASK = BUF_SIZE - 1;
@@ -15,7 +20,7 @@ import java.util.List;
   static final int KEY_LEN_LIMIT = 1 << KEY_LEN_BITS;  // 1 MiB
   static final int KEY_LEN_MASK = KEY_LEN_LIMIT - 1;
 
-  static final int BUFNR_BITS = 20;  // total = 4 TiB
+  static final int BUFNR_BITS = 14;  // total = 64 GiB
   static final int BUFNR_LIMIT = 1 << BUFNR_BITS;
   static {
     assertBitsAreRight();
@@ -23,7 +28,7 @@ import java.util.List;
 
   @SuppressWarnings("all")
   private static void assertBitsAreRight() {
-    if (BUFNR_BITS + KEY_OFFSET_BITS + KEY_LEN_BITS + 2 != 64) {
+    if (BUFNR_BITS + KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1 != 64) {
       throw new AssertionError();
     }
   }
@@ -40,11 +45,11 @@ import java.util.List;
   // bits[63:23] = offset
   //     [22:2]  = length
   //     [2:0]   = tombstone flag and present/empty flag
-  long store(byte[] keyContent) {
-    return this.store(keyContent, 0, keyContent.length);
+  long store(byte[] keyContent, int hashLower) {
+    return this.store(keyContent, 0, keyContent.length, hashLower);
   }
 
-  private long store(byte[] src, int srcOffset, int srcLength) {
+  private long store(byte[] src, int srcOffset, int srcLength, int hashLower) {
     if (srcLength >= KEY_LEN_LIMIT) {
       throw new IllegalArgumentException("Key too long");
     }
@@ -58,39 +63,40 @@ import java.util.List;
     }
     int offset = store.position();
     store.put(src, srcOffset, srcLength);
-    return ((long) which << (KEY_OFFSET_BITS + KEY_LEN_BITS + 2))
-      | ((long) offset << (KEY_LEN_BITS + 2))
-      | ((long) srcLength << 2)
-      | 3;
+    return ((long) which << (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1))
+      | ((long) offset << (KEY_LEN_BITS + H2_BITS + 1))
+      | ((long) srcLength << (H2_BITS + 1))
+      | (1L << H2_BITS)
+      | ((long) hashLower);
   }
 
   byte[] load(long keyRef) {
-    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-    int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
+    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1));
+    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + H2_BITS + 1)) & KEY_OFFSET_MASK);
+    int length = (int) ((keyRef >>> (H2_BITS + 1)) & KEY_LEN_MASK);
     byte[] bufContent = this.buffers.get(which).array();
     return Arrays.copyOfRange(bufContent, offset, offset + length);
   }
 
   String loadAsString(long keyRef, Charset charset) {
-    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-    int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
+    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1));
+    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + H2_BITS + 1)) & KEY_OFFSET_MASK);
+    int length = (int) ((keyRef >>> (H2_BITS + 1)) & KEY_LEN_MASK);
     byte[] bufContent = this.buffers.get(which).array();
     return new String(bufContent, offset, length, charset);
   }
 
   int hashAt(long keyRef) {
-    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-    int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
+    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1));
+    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + H2_BITS + 1)) & KEY_OFFSET_MASK);
+    int length = (int) ((keyRef >>> (H2_BITS + 1)) & KEY_LEN_MASK);
     return this.hasher.hashBuffer(this.buffers.get(which), offset, length);
   }
 
   boolean equalsAt(long keyRef, byte[] other) {
-    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-    int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
+    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1));
+    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + H2_BITS + 1)) & KEY_OFFSET_MASK);
+    int length = (int) ((keyRef >>> (H2_BITS + 1)) & KEY_LEN_MASK);
     if (other.length != length) {
       return false;
     }
@@ -99,10 +105,11 @@ import java.util.List;
   }
 
   public long copyFrom(KeyStorage src, long keyRef) {
-    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + 2));
-    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + 2)) & KEY_OFFSET_MASK);
-    int length = (int) ((keyRef >>> 2) & KEY_LEN_MASK);
+    int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1));
+    int offset = (int) ((keyRef >>> (KEY_LEN_BITS + H2_BITS + 1)) & KEY_OFFSET_MASK);
+    int length = (int) ((keyRef >>> (H2_BITS + 1)) & KEY_LEN_MASK);
+    int hashLower = (int) (keyRef & H2_MASK);
     byte[] bufContent = src.buffers.get(which).array();
-    return this.store(bufContent, offset, length);
+    return this.store(bufContent, offset, length, hashLower);
   }
 }
