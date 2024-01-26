@@ -1,12 +1,12 @@
 package dev.dylanburati;
 
 import dev.dylanburati.pocketmap.IntPocketMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
-import java.util.TreeMap;
 
 public class App {
   private static int genWordId(Random r) {
@@ -45,9 +45,10 @@ public class App {
     return m.size();
   }
 
-  public static void main( String[] args ) {
-    var m = switch (Optional.ofNullable(System.getProperty("switchPocketMapWith")).orElse("")) {
-      case "HashMap" -> new HashMap<String, Integer>();
+  public static void main(String[] args) {
+    var m = switch (args.length > 0 ? args[0] : "") {
+      case "java.util" -> new HashMap<String, Integer>();
+      case "fastutil" -> new Object2IntOpenHashMap<String>();
       default -> new IntPocketMap();
     };
     wordcount(m);

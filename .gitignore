@@ -31,8 +31,6 @@ target/
 .settings/
 .classpath
 .factorypath
-/.project
-benchmarks/.project
-pocketmap/.project
+.project
 
 **/resources/*.zst
