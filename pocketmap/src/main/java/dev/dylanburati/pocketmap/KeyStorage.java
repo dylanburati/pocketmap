@@ -7,12 +7,12 @@ import java.util.Arrays;
 import java.util.List;
 
 /* package-private */ class KeyStorage {
-  static final int H2_BITS = 7;
+  static final int H2_BITS = 1;
   static final int ALIVE_FLAG = 1 << H2_BITS;
   static final int H2_MASK = ALIVE_FLAG - 1;
   static final int ALIVE_H2_MASK = ALIVE_FLAG | H2_MASK;
 
-  static final int KEY_OFFSET_BITS = 22;
+  static final int KEY_OFFSET_BITS = 26;
   static final int BUF_SIZE = 1 << KEY_OFFSET_BITS; // 4 MiB
   static final int KEY_OFFSET_MASK = BUF_SIZE - 1;
 
@@ -20,7 +20,7 @@ import java.util.List;
   static final int KEY_LEN_LIMIT = 1 << KEY_LEN_BITS;  // 1 MiB
   static final int KEY_LEN_MASK = KEY_LEN_LIMIT - 1;
 
-  static final int BUFNR_BITS = 14;  // total = 64 GiB
+  static final int BUFNR_BITS = 16;  // total = 64 GiB
   static final int BUFNR_LIMIT = 1 << BUFNR_BITS;
   static {
     assertBitsAreRight();
@@ -45,11 +45,11 @@ import java.util.List;
   // bits[63:23] = offset
   //     [22:2]  = length
   //     [2:0]   = tombstone flag and present/empty flag
-  long store(byte[] keyContent, int hashLower) {
-    return this.store(keyContent, 0, keyContent.length, hashLower);
+  long store(byte[] keyContent) {
+    return this.store(keyContent, 0, keyContent.length);
   }
 
-  private long store(byte[] src, int srcOffset, int srcLength, int hashLower) {
+  private long store(byte[] src, int srcOffset, int srcLength) {
     if (srcLength >= KEY_LEN_LIMIT) {
       throw new IllegalArgumentException("Key too long");
     }
@@ -66,8 +66,7 @@ import java.util.List;
     return ((long) which << (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1))
       | ((long) offset << (KEY_LEN_BITS + H2_BITS + 1))
       | ((long) srcLength << (H2_BITS + 1))
-      | (1L << H2_BITS)
-      | ((long) hashLower);
+      | 3L;
   }
 
   byte[] load(long keyRef) {
@@ -108,8 +107,7 @@ import java.util.List;
     int which = (int) (keyRef >>> (KEY_OFFSET_BITS + KEY_LEN_BITS + H2_BITS + 1));
     int offset = (int) ((keyRef >>> (KEY_LEN_BITS + H2_BITS + 1)) & KEY_OFFSET_MASK);
     int length = (int) ((keyRef >>> (H2_BITS + 1)) & KEY_LEN_MASK);
-    int hashLower = (int) (keyRef & H2_MASK);
     byte[] bufContent = src.buffers.get(which).array();
-    return this.store(bufContent, offset, length, hashLower);
+    return this.store(bufContent, offset, length);
   }
 }

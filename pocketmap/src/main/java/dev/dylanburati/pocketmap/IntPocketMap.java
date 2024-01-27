@@ -188,7 +188,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
   /* template! private \(.val.view) putImpl(byte[] key, \(.val.view) value, boolean shouldReplace) { */
   private Integer putImpl(byte[] key, Integer value, boolean shouldReplace) {
     int hash = this.hasher.hashBytes(key);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
+    int idx = this.readIndex(hash, key);
     if (idx >= 0) {
       /* template! \(.val.view) prev = \([.val.object, "this.values[idx]"] | castUnsafe); */
       Integer prev = this.values[idx];
@@ -197,7 +197,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
       }
       return prev;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
+    this.insertByIndex(-idx - 1, hash, key, value);
     return null;
   }
 
@@ -296,7 +296,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
   private Integer computeImpl(byte[] key, BiFunction<? super byte[], ? super Integer, ? extends Integer> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
     Objects.requireNonNull(remappingFunction);
     int hash = this.hasher.hashBytes(key);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
+    int idx = this.readIndex(hash, key);
     if (idx >= 0) {
       /* template! \(.val.view) result = null; */
       Integer result = null;
@@ -319,7 +319,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
     if (value == null) {
       return null;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
+    this.insertByIndex(-idx - 1, hash, key, value);
     return value;
   }
 
@@ -329,7 +329,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
     Objects.requireNonNull(remappingFunction);
     Objects.requireNonNull(value);
     int hash = this.hasher.hashBytes(key);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
+    int idx = this.readIndex(hash, key);
     if (idx >= 0) {
       /* template! \(.val.view) result = remappingFunction.apply(\([.val.object, "this.values[idx]"] | castUnsafe), value); */
       Integer result = remappingFunction.apply(this.values[idx], value);
@@ -340,7 +340,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
       }
       return result;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
+    this.insertByIndex(-idx - 1, hash, key, value);
     return value;
   }
 
@@ -1062,8 +1062,8 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
   }
 
   /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
-  private int insertionIndex(long[] keys, int hashUpper) {
-    int h = hashUpper & (keys.length - 1);
+  private int insertionIndex(long[] keys, int hash) {
+    int h = hash & (keys.length - 1);
     int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
       h = (h + distance) & (keys.length - 1);
@@ -1082,8 +1082,8 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
    * <li> {@code -index - 1} when an empty slot is found; the index refers to the first tombstone found
    *   if any, otherwise the empty slot
    */
-  private int readIndex(int hashUpper, int hashLower, byte[] keyContent) {
-    int h = hashUpper & (this.keys.length - 1);
+  private int readIndex(int hash, byte[] keyContent) {
+    int h = hash & (this.keys.length - 1);
     int distance = 1;
     int firstTombstone = -1;
     while ((this.keys[h] & ALIVE_H2_MASK) > 0) {
@@ -1094,7 +1094,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
         distance++;
         continue;
       }
-      if ((this.keys[h] & H2_MASK) == hashLower && this.keyStorage.equalsAt(this.keys[h], keyContent)) {
+      if (this.keyStorage.equalsAt(this.keys[h], keyContent)) {
         return h;
       }
       h = (h + distance) & (this.keys.length - 1);
@@ -1108,13 +1108,13 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
 
   private int readIndex(byte[] keyContent) {
     int hash = this.hasher.hashBytes(keyContent);
-    return this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+    return this.readIndex(hash, keyContent);
   }
 
   // used by Node to refresh its known index on the first access after a rehash
   private int rereadIndex(long keyRef) {
     int hash = this.keyStorage.hashAt(keyRef);
-    int h = (hash >>> H2_BITS) & (keys.length - 1);
+    int h = hash & (keys.length - 1);
     int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
       if (keys[h] == keyRef) {
@@ -1132,14 +1132,14 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
    * {@code idx} is not guaranteed to be the real insertion index, as it is recalculated if 
    * we resize or purge tombstones.
    */
-  /* template! private void insertByIndex(int idx, int hashUpper, int hashLower, byte[] keyContent, \(.val.t) value) { */
-  private void insertByIndex(int idx, int hashUpper, int hashLower, byte[] keyContent, int value) {
+  /* template! private void insertByIndex(int idx, int hash, byte[] keyContent, \(.val.t) value) { */
+  private void insertByIndex(int idx, int hash, byte[] keyContent, int value) {
     boolean isTombstone = (this.keys[idx] & 1) == 1;
     if (!isTombstone && this.maybeSetCapacity()) {
-      idx = this.insertionIndex(this.keys, hashUpper);
+      idx = this.insertionIndex(this.keys, hash);
       isTombstone = false;  // no tombstones following resize
     }
-    long keyRef = this.keyStorage.store(keyContent, hashLower);
+    long keyRef = this.keyStorage.store(keyContent);
     this.keys[idx] = keyRef;
     this.values[idx] = value;
     this.size++;
@@ -1184,7 +1184,7 @@ public class IntPocketMap extends AbstractMap<byte[], Integer> {
         // the keyRef with ALIVE_FLAG is copied to a **different index** in nextKeys
         //   - insertionIndex only returns idx with (keys[idx] & ALIVE_FLAG) == 0
         int hash = this.keyStorage.hashAt(this.keys[src]);
-        int idx = this.insertionIndex(nextKeys, hash >>> H2_BITS);
+        int idx = this.insertionIndex(nextKeys, hash);
         nextKeys[idx] = this.keys[src];
         nextValues[idx] = this.values[src];
       }
