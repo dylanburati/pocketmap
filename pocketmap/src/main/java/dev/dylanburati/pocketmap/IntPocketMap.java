@@ -693,19 +693,17 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   // end section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
+  /** Index of first empty/tombstone slot in linear probe starting from hash(keyContent) */
   private int insertionIndex(long[] keys, int hashUpper) {
     int h = hashUpper & (keys.length - 1);
-    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
-      h = (h + distance) & (keys.length - 1);
-      distance++;
+      h = (h + 1) & (keys.length - 1);
     }
     return h;
   }
 
   /**
-   * Attempts to find index whose stored key equals the given one, using a quadratic probe starting from 
+   * Attempts to find index whose stored key equals the given one, using a linear probe starting from 
    * hash(keyContent).
    *
    * Returns:
@@ -716,21 +714,18 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
    */
   private int readIndex(int hashUpper, int hashLower, byte[] keyContent) {
     int h = hashUpper & (this.keys.length - 1);
-    int distance = 1;
     int firstTombstone = -1;
     while ((this.keys[h] & ALIVE_H2_MASK) > 0) {
       if ((this.keys[h] & ALIVE_FLAG) == 0) {
         // Tombstone
         firstTombstone = firstTombstone < 0 ? h : firstTombstone;
-        h = (h + distance) & (this.keys.length - 1);
-        distance++;
+        h = (h + 1) & (this.keys.length - 1);
         continue;
       }
       if ((this.keys[h] & H2_MASK) == hashLower && this.keyStorage.equalsAt(this.keys[h], keyContent)) {
         return h;
       }
-      h = (h + distance) & (this.keys.length - 1);
-      distance++;
+      h = (h + 1) & (this.keys.length - 1);
     }
     if (firstTombstone >= 0) {
       return -firstTombstone - 1;
@@ -747,13 +742,11 @@ public class IntPocketMap extends AbstractMap<String, Integer> implements Clonea
   private int rereadIndex(long keyRef) {
     int hash = this.keyStorage.hashAt(keyRef);
     int h = (hash >>> H2_BITS) & (keys.length - 1);
-    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
       if (keys[h] == keyRef) {
         return h;
       }
-      h = (h + distance) & (keys.length - 1);
-      distance++;
+      h = (h + 1) & (keys.length - 1);
     }
     return -1;
   }
