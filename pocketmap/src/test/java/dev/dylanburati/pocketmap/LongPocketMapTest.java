@@ -19,19 +19,19 @@ import java.util.stream.Stream;
 
 class LongPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new LongPocketMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> LongPocketMap.newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    LongPocketMap m = new LongPocketMap(0);
+    Map<String, Long> m = LongPocketMap.newUtf8(0);
     assertNull(m.put("", 505L));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 505L));
     assertEquals(1, m.size());
@@ -41,12 +41,12 @@ class LongPocketMapTest {
   }
 
   @Test void testPutAll() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 505L));
     assertEquals(1, m.size());
     assertNull(m.put("b", 606L));
-    LongPocketMap m2 = new LongPocketMap();
+    Map<String, Long> m2 = LongPocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals(505L, m.get("a"));
@@ -54,7 +54,7 @@ class LongPocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -69,7 +69,7 @@ class LongPocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    LongPocketMap m = new LongPocketMap(initialCapacity);
+    Map<String, Long> m = LongPocketMap.newUtf8(initialCapacity);
     IntFunction<Long> toValue = (v) -> (long) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -125,7 +125,7 @@ class LongPocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertNull(m.put("a", 505L));
     assertEquals(505L, m.get("a"));
     assertEquals(505L, m.put("a", 606L));
@@ -133,7 +133,7 @@ class LongPocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertNull(m.put("a", 505L));
     assertEquals(505L, m.get("a"));
 
@@ -155,7 +155,7 @@ class LongPocketMapTest {
   }
 
   @Test void testReplace() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertNull(m.replace("a", 505L));
     assertFalse(m.containsKey("a"));
     m.put("a", 505L);
@@ -164,7 +164,7 @@ class LongPocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", 505L));
     assertFalse(m.isEmpty());
@@ -173,21 +173,21 @@ class LongPocketMapTest {
   }
 
   @Test void testRemove() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertNull(m.put("a", 505L));
     assertEquals(505L, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    LongPocketMap m = new LongPocketMap(8);
+    Map<String, Long> m = LongPocketMap.newUtf8(8);
     List<Long> values = Stream.generate(() -> List.of(505L, 606L, 707L, 808L)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (Long v : values) {
       String k = Integer.toString(m.size());
@@ -208,7 +208,7 @@ class LongPocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    LongPocketMap m = new LongPocketMap(8);
+    Map<String, Long> m = LongPocketMap.newUtf8(8);
     List<Long> values = Stream.generate(() -> List.of(505L, 606L, 707L, 808L)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Long v : values) {
@@ -253,7 +253,7 @@ class LongPocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    LongPocketMap m = new LongPocketMap(8);
+    Map<String, Long> m = LongPocketMap.newUtf8(8);
     List<Long> values = Stream.generate(() -> List.of(505L, 606L, 707L, 808L)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Long v : values) {
@@ -276,7 +276,7 @@ class LongPocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     m.put("a", 505L);
     assertFalse(m.remove("a", 606L));
     assertTrue(m.remove("a", 505L));
@@ -284,7 +284,7 @@ class LongPocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    LongPocketMap m = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
     m.put("a", 505L);
     assertFalse(m.replace("a", 606L, 808L));
     assertTrue(m.replace("a", 505L, 808L));
@@ -292,8 +292,8 @@ class LongPocketMapTest {
   }
 
   @Test void testEquals() {
-    LongPocketMap m = new LongPocketMap();
-    LongPocketMap m2 = new LongPocketMap();
+    Map<String, Long> m = LongPocketMap.newUtf8();
+    Map<String, Long> m2 = LongPocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", 505L);
     m.put("bb", 606L);
@@ -306,7 +306,7 @@ class LongPocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    LongPocketMap m = new LongPocketMap(8);
+    Map<String, Long> m = LongPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 505L, "bb", 606L, "ccc", 707L, "dddd", 808L));
 
     // update
@@ -368,7 +368,7 @@ class LongPocketMapTest {
   }
 
   @Test void testCompute() {
-    LongPocketMap m = new LongPocketMap(8);
+    Map<String, Long> m = LongPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 505L, "bb", 606L, "ccc", 707L, "dddd", 808L));
 
     // update
@@ -414,7 +414,7 @@ class LongPocketMapTest {
   }
 
   @Test void testMerge() {
-    LongPocketMap m = new LongPocketMap(8);
+    Map<String, Long> m = LongPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 505L, "bb", 606L, "ccc", 707L));
 
     BiFunction<Long, Long, Long> remappingFunction = (v1, v2) -> {

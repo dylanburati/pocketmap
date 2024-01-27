@@ -19,19 +19,19 @@ import java.util.stream.Stream;
 
 class BytePocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new BytePocketMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> BytePocketMap.newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    BytePocketMap m = new BytePocketMap(0);
+    Map<String, Byte> m = BytePocketMap.newUtf8(0);
     assertNull(m.put("", (byte)55));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", (byte)55));
     assertEquals(1, m.size());
@@ -41,12 +41,12 @@ class BytePocketMapTest {
   }
 
   @Test void testPutAll() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", (byte)55));
     assertEquals(1, m.size());
     assertNull(m.put("b", (byte)66));
-    BytePocketMap m2 = new BytePocketMap();
+    Map<String, Byte> m2 = BytePocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals((byte)55, m.get("a"));
@@ -54,7 +54,7 @@ class BytePocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -69,7 +69,7 @@ class BytePocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    BytePocketMap m = new BytePocketMap(initialCapacity);
+    Map<String, Byte> m = BytePocketMap.newUtf8(initialCapacity);
     IntFunction<Byte> toValue = (v) -> (byte) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -125,7 +125,7 @@ class BytePocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertNull(m.put("a", (byte)55));
     assertEquals((byte)55, m.get("a"));
     assertEquals((byte)55, m.put("a", (byte)66));
@@ -133,7 +133,7 @@ class BytePocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertNull(m.put("a", (byte)55));
     assertEquals((byte)55, m.get("a"));
 
@@ -155,7 +155,7 @@ class BytePocketMapTest {
   }
 
   @Test void testReplace() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertNull(m.replace("a", (byte)55));
     assertFalse(m.containsKey("a"));
     m.put("a", (byte)55);
@@ -164,7 +164,7 @@ class BytePocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", (byte)55));
     assertFalse(m.isEmpty());
@@ -173,21 +173,21 @@ class BytePocketMapTest {
   }
 
   @Test void testRemove() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertNull(m.put("a", (byte)55));
     assertEquals((byte)55, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    BytePocketMap m = new BytePocketMap(8);
+    Map<String, Byte> m = BytePocketMap.newUtf8(8);
     List<Byte> values = Stream.generate(() -> List.of((byte)55, (byte)66, (byte)77, (byte)88)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (Byte v : values) {
       String k = Integer.toString(m.size());
@@ -208,7 +208,7 @@ class BytePocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    BytePocketMap m = new BytePocketMap(8);
+    Map<String, Byte> m = BytePocketMap.newUtf8(8);
     List<Byte> values = Stream.generate(() -> List.of((byte)55, (byte)66, (byte)77, (byte)88)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Byte v : values) {
@@ -253,7 +253,7 @@ class BytePocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    BytePocketMap m = new BytePocketMap(8);
+    Map<String, Byte> m = BytePocketMap.newUtf8(8);
     List<Byte> values = Stream.generate(() -> List.of((byte)55, (byte)66, (byte)77, (byte)88)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Byte v : values) {
@@ -276,7 +276,7 @@ class BytePocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     m.put("a", (byte)55);
     assertFalse(m.remove("a", (byte)66));
     assertTrue(m.remove("a", (byte)55));
@@ -284,7 +284,7 @@ class BytePocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    BytePocketMap m = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
     m.put("a", (byte)55);
     assertFalse(m.replace("a", (byte)66, (byte)88));
     assertTrue(m.replace("a", (byte)55, (byte)88));
@@ -292,8 +292,8 @@ class BytePocketMapTest {
   }
 
   @Test void testEquals() {
-    BytePocketMap m = new BytePocketMap();
-    BytePocketMap m2 = new BytePocketMap();
+    Map<String, Byte> m = BytePocketMap.newUtf8();
+    Map<String, Byte> m2 = BytePocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", (byte)55);
     m.put("bb", (byte)66);
@@ -306,7 +306,7 @@ class BytePocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    BytePocketMap m = new BytePocketMap(8);
+    Map<String, Byte> m = BytePocketMap.newUtf8(8);
     m.putAll(Map.of("a", (byte)55, "bb", (byte)66, "ccc", (byte)77, "dddd", (byte)88));
 
     // update
@@ -368,7 +368,7 @@ class BytePocketMapTest {
   }
 
   @Test void testCompute() {
-    BytePocketMap m = new BytePocketMap(8);
+    Map<String, Byte> m = BytePocketMap.newUtf8(8);
     m.putAll(Map.of("a", (byte)55, "bb", (byte)66, "ccc", (byte)77, "dddd", (byte)88));
 
     // update
@@ -414,7 +414,7 @@ class BytePocketMapTest {
   }
 
   @Test void testMerge() {
-    BytePocketMap m = new BytePocketMap(8);
+    Map<String, Byte> m = BytePocketMap.newUtf8(8);
     m.putAll(Map.of("a", (byte)55, "bb", (byte)66, "ccc", (byte)77));
 
     BiFunction<Byte, Byte, Byte> remappingFunction = (v1, v2) -> {

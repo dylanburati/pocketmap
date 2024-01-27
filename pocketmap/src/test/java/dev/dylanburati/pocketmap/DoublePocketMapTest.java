@@ -19,19 +19,19 @@ import java.util.stream.Stream;
 
 class DoublePocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new DoublePocketMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> DoublePocketMap.newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    DoublePocketMap m = new DoublePocketMap(0);
+    Map<String, Double> m = DoublePocketMap.newUtf8(0);
     assertNull(m.put("", 5.5));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 5.5));
     assertEquals(1, m.size());
@@ -41,12 +41,12 @@ class DoublePocketMapTest {
   }
 
   @Test void testPutAll() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 5.5));
     assertEquals(1, m.size());
     assertNull(m.put("b", 6.25));
-    DoublePocketMap m2 = new DoublePocketMap();
+    Map<String, Double> m2 = DoublePocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals(5.5, m.get("a"));
@@ -54,7 +54,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -69,7 +69,7 @@ class DoublePocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    DoublePocketMap m = new DoublePocketMap(initialCapacity);
+    Map<String, Double> m = DoublePocketMap.newUtf8(initialCapacity);
     IntFunction<Double> toValue = (v) -> (double) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -125,7 +125,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertNull(m.put("a", 5.5));
     assertEquals(5.5, m.get("a"));
     assertEquals(5.5, m.put("a", 6.25));
@@ -133,7 +133,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertNull(m.put("a", 5.5));
     assertEquals(5.5, m.get("a"));
 
@@ -155,7 +155,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testReplace() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertNull(m.replace("a", 5.5));
     assertFalse(m.containsKey("a"));
     m.put("a", 5.5);
@@ -164,7 +164,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", 5.5));
     assertFalse(m.isEmpty());
@@ -173,21 +173,21 @@ class DoublePocketMapTest {
   }
 
   @Test void testRemove() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertNull(m.put("a", 5.5));
     assertEquals(5.5, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    DoublePocketMap m = new DoublePocketMap(8);
+    Map<String, Double> m = DoublePocketMap.newUtf8(8);
     List<Double> values = Stream.generate(() -> List.of(5.5, 6.25, 7.125, 8.0625)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (Double v : values) {
       String k = Integer.toString(m.size());
@@ -208,7 +208,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    DoublePocketMap m = new DoublePocketMap(8);
+    Map<String, Double> m = DoublePocketMap.newUtf8(8);
     List<Double> values = Stream.generate(() -> List.of(5.5, 6.25, 7.125, 8.0625)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Double v : values) {
@@ -253,7 +253,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    DoublePocketMap m = new DoublePocketMap(8);
+    Map<String, Double> m = DoublePocketMap.newUtf8(8);
     List<Double> values = Stream.generate(() -> List.of(5.5, 6.25, 7.125, 8.0625)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Double v : values) {
@@ -276,7 +276,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     m.put("a", 5.5);
     assertFalse(m.remove("a", 6.25));
     assertTrue(m.remove("a", 5.5));
@@ -284,7 +284,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    DoublePocketMap m = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
     m.put("a", 5.5);
     assertFalse(m.replace("a", 6.25, 8.0625));
     assertTrue(m.replace("a", 5.5, 8.0625));
@@ -292,8 +292,8 @@ class DoublePocketMapTest {
   }
 
   @Test void testEquals() {
-    DoublePocketMap m = new DoublePocketMap();
-    DoublePocketMap m2 = new DoublePocketMap();
+    Map<String, Double> m = DoublePocketMap.newUtf8();
+    Map<String, Double> m2 = DoublePocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", 5.5);
     m.put("bb", 6.25);
@@ -306,7 +306,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    DoublePocketMap m = new DoublePocketMap(8);
+    Map<String, Double> m = DoublePocketMap.newUtf8(8);
     m.putAll(Map.of("a", 5.5, "bb", 6.25, "ccc", 7.125, "dddd", 8.0625));
 
     // update
@@ -368,7 +368,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testCompute() {
-    DoublePocketMap m = new DoublePocketMap(8);
+    Map<String, Double> m = DoublePocketMap.newUtf8(8);
     m.putAll(Map.of("a", 5.5, "bb", 6.25, "ccc", 7.125, "dddd", 8.0625));
 
     // update
@@ -414,7 +414,7 @@ class DoublePocketMapTest {
   }
 
   @Test void testMerge() {
-    DoublePocketMap m = new DoublePocketMap(8);
+    Map<String, Double> m = DoublePocketMap.newUtf8(8);
     m.putAll(Map.of("a", 5.5, "bb", 6.25, "ccc", 7.125));
 
     BiFunction<Double, Double, Double> remappingFunction = (v1, v2) -> {

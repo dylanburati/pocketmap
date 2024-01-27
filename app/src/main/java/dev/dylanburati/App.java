@@ -49,7 +49,7 @@ public class App {
     var m = switch (args.length > 0 ? args[0] : "") {
       case "java.util" -> new HashMap<String, Integer>();
       case "fastutil" -> new Object2IntOpenHashMap<String>();
-      default -> new IntPocketMap();
+      default -> IntPocketMap.newUtf8();
     };
     wordcount(m);
   }

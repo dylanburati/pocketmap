@@ -19,19 +19,19 @@ import java.util.stream.Stream;
 
 class ShortPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new ShortPocketMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> ShortPocketMap.newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    ShortPocketMap m = new ShortPocketMap(0);
+    Map<String, Short> m = ShortPocketMap.newUtf8(0);
     assertNull(m.put("", (short)505));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", (short)505));
     assertEquals(1, m.size());
@@ -41,12 +41,12 @@ class ShortPocketMapTest {
   }
 
   @Test void testPutAll() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", (short)505));
     assertEquals(1, m.size());
     assertNull(m.put("b", (short)606));
-    ShortPocketMap m2 = new ShortPocketMap();
+    Map<String, Short> m2 = ShortPocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals((short)505, m.get("a"));
@@ -54,7 +54,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -69,7 +69,7 @@ class ShortPocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    ShortPocketMap m = new ShortPocketMap(initialCapacity);
+    Map<String, Short> m = ShortPocketMap.newUtf8(initialCapacity);
     IntFunction<Short> toValue = (v) -> (short) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -125,7 +125,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertNull(m.put("a", (short)505));
     assertEquals((short)505, m.get("a"));
     assertEquals((short)505, m.put("a", (short)606));
@@ -133,7 +133,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertNull(m.put("a", (short)505));
     assertEquals((short)505, m.get("a"));
 
@@ -155,7 +155,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testReplace() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertNull(m.replace("a", (short)505));
     assertFalse(m.containsKey("a"));
     m.put("a", (short)505);
@@ -164,7 +164,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", (short)505));
     assertFalse(m.isEmpty());
@@ -173,21 +173,21 @@ class ShortPocketMapTest {
   }
 
   @Test void testRemove() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertNull(m.put("a", (short)505));
     assertEquals((short)505, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    ShortPocketMap m = new ShortPocketMap(8);
+    Map<String, Short> m = ShortPocketMap.newUtf8(8);
     List<Short> values = Stream.generate(() -> List.of((short)505, (short)606, (short)707, (short)808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (Short v : values) {
       String k = Integer.toString(m.size());
@@ -208,7 +208,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    ShortPocketMap m = new ShortPocketMap(8);
+    Map<String, Short> m = ShortPocketMap.newUtf8(8);
     List<Short> values = Stream.generate(() -> List.of((short)505, (short)606, (short)707, (short)808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Short v : values) {
@@ -253,7 +253,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    ShortPocketMap m = new ShortPocketMap(8);
+    Map<String, Short> m = ShortPocketMap.newUtf8(8);
     List<Short> values = Stream.generate(() -> List.of((short)505, (short)606, (short)707, (short)808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Short v : values) {
@@ -276,7 +276,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     m.put("a", (short)505);
     assertFalse(m.remove("a", (short)606));
     assertTrue(m.remove("a", (short)505));
@@ -284,7 +284,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    ShortPocketMap m = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
     m.put("a", (short)505);
     assertFalse(m.replace("a", (short)606, (short)808));
     assertTrue(m.replace("a", (short)505, (short)808));
@@ -292,8 +292,8 @@ class ShortPocketMapTest {
   }
 
   @Test void testEquals() {
-    ShortPocketMap m = new ShortPocketMap();
-    ShortPocketMap m2 = new ShortPocketMap();
+    Map<String, Short> m = ShortPocketMap.newUtf8();
+    Map<String, Short> m2 = ShortPocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", (short)505);
     m.put("bb", (short)606);
@@ -306,7 +306,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    ShortPocketMap m = new ShortPocketMap(8);
+    Map<String, Short> m = ShortPocketMap.newUtf8(8);
     m.putAll(Map.of("a", (short)505, "bb", (short)606, "ccc", (short)707, "dddd", (short)808));
 
     // update
@@ -368,7 +368,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testCompute() {
-    ShortPocketMap m = new ShortPocketMap(8);
+    Map<String, Short> m = ShortPocketMap.newUtf8(8);
     m.putAll(Map.of("a", (short)505, "bb", (short)606, "ccc", (short)707, "dddd", (short)808));
 
     // update
@@ -414,7 +414,7 @@ class ShortPocketMapTest {
   }
 
   @Test void testMerge() {
-    ShortPocketMap m = new ShortPocketMap(8);
+    Map<String, Short> m = ShortPocketMap.newUtf8(8);
     m.putAll(Map.of("a", (short)505, "bb", (short)606, "ccc", (short)707));
 
     BiFunction<Short, Short, Short> remappingFunction = (v1, v2) -> {

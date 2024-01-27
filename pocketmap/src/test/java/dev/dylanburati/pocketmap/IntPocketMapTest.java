@@ -22,22 +22,22 @@ import java.util.stream.Stream;
 /* template! class \(.val.disp)PocketMapTest { */
 class IntPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    /* template! assertThrows(IllegalArgumentException.class, () -> new \(.val.disp)PocketMap\(.val.generic//"")(-1)); */
-    assertThrows(IllegalArgumentException.class, () -> new IntPocketMap(-1));
+    /* template! assertThrows(IllegalArgumentException.class, () -> \(.val.disp)PocketMap.\(.val.generic//"")newUtf8(-1)); */
+    assertThrows(IllegalArgumentException.class, () -> IntPocketMap.newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(0); */
-    IntPocketMap m = new IntPocketMap(0);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(0); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(0);
     assertNull(m.put("", 505));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 505));
     assertEquals(1, m.size());
@@ -47,14 +47,14 @@ class IntPocketMapTest {
   }
 
   @Test void testPutAll() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 505));
     assertEquals(1, m.size());
     assertNull(m.put("b", 606));
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m2 = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m2 = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m2 = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m2 = IntPocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals(505, m.get("a"));
@@ -62,8 +62,8 @@ class IntPocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -78,8 +78,8 @@ class IntPocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(initialCapacity); */
-    IntPocketMap m = new IntPocketMap(initialCapacity);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(initialCapacity); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(initialCapacity);
     /* template! IntFunction<\(.val.view)> toValue = \(.intLambda); */
     IntFunction<Integer> toValue = (v) -> v;
     for (int loop = 0; loop < 10; loop++) {
@@ -136,8 +136,8 @@ class IntPocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertNull(m.put("a", 505));
     assertEquals(505, m.get("a"));
     assertEquals(505, m.put("a", 606));
@@ -145,8 +145,8 @@ class IntPocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertNull(m.put("a", 505));
     assertEquals(505, m.get("a"));
 
@@ -168,8 +168,8 @@ class IntPocketMapTest {
   }
 
   @Test void testReplace() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertNull(m.replace("a", 505));
     assertFalse(m.containsKey("a"));
     m.put("a", 505);
@@ -178,8 +178,8 @@ class IntPocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", 505));
     assertFalse(m.isEmpty());
@@ -188,24 +188,24 @@ class IntPocketMapTest {
   }
 
   @Test void testRemove() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertNull(m.put("a", 505));
     assertEquals(505, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
-    IntPocketMap m = new IntPocketMap(8);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(8); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(8);
     /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
     List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     /* template! for (\(.val.view) v : values) { */
@@ -229,8 +229,8 @@ class IntPocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
-    IntPocketMap m = new IntPocketMap(8);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(8); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(8);
     /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
     List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
@@ -283,8 +283,8 @@ class IntPocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
-    IntPocketMap m = new IntPocketMap(8);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(8); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(8);
     /* template! List<\(.val.view)> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList()); */
     List<Integer> values = Stream.generate(() -> List.of(505, 606, 707, 808)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
@@ -312,8 +312,8 @@ class IntPocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     m.put("a", 505);
     assertFalse(m.remove("a", 606));
     assertTrue(m.remove("a", 505));
@@ -321,8 +321,8 @@ class IntPocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
     m.put("a", 505);
     assertFalse(m.replace("a", 606, 808));
     assertTrue(m.replace("a", 505, 808));
@@ -330,10 +330,10 @@ class IntPocketMapTest {
   }
 
   @Test void testEquals() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m = new IntPocketMap();
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m2 = new \(.val.disp)PocketMap\(.val.generic_infer//"")(); */
-    IntPocketMap m2 = new IntPocketMap();
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m = IntPocketMap.newUtf8();
+    /* template! Map<String, \(.val.view)> m2 = \(.val.disp)PocketMap.newUtf8(); */
+    Map<String, Integer> m2 = IntPocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", 505);
     m.put("bb", 606);
@@ -346,8 +346,8 @@ class IntPocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
-    IntPocketMap m = new IntPocketMap(8);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(8); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 505, "bb", 606, "ccc", 707, "dddd", 808));
 
     // update
@@ -412,8 +412,8 @@ class IntPocketMapTest {
   }
 
   @Test void testCompute() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
-    IntPocketMap m = new IntPocketMap(8);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(8); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 505, "bb", 606, "ccc", 707, "dddd", 808));
 
     // update
@@ -462,8 +462,8 @@ class IntPocketMapTest {
   }
 
   @Test void testMerge() {
-    /* template! \(.val.disp)PocketMap\(.val.generic//"") m = new \(.val.disp)PocketMap\(.val.generic_infer//"")(8); */
-    IntPocketMap m = new IntPocketMap(8);
+    /* template! Map<String, \(.val.view)> m = \(.val.disp)PocketMap.newUtf8(8); */
+    Map<String, Integer> m = IntPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 505, "bb", 606, "ccc", 707));
 
     /* template! BiFunction<\(.val.view), \(.val.view), \(.val.view)> remappingFunction = (v1, v2) -> { */

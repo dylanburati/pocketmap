@@ -1,5 +1,6 @@
 package dev.dylanburati.pocketmap;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
 import java.util.AbstractMap;
@@ -28,7 +29,7 @@ import static dev.dylanburati.pocketmap.KeyStorage.*;
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cloneable {
+public class BooleanPocketMap extends AbstractMap<byte[], Boolean> {
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
@@ -82,6 +83,16 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     this.tombstoneCount = 0;
   }
 
+  public static StringWrapper newUtf8() {
+    return new StringWrapper(new BooleanPocketMap(), StandardCharsets.UTF_8);
+  }
+  public static StringWrapper newUtf8(int initialCapacity) {
+    return new StringWrapper(new BooleanPocketMap(initialCapacity), StandardCharsets.UTF_8);
+  }
+  public static StringWrapper newUtf8(int initialCapacity, final Hasher hasher) {
+    return new StringWrapper(new BooleanPocketMap(initialCapacity, hasher), StandardCharsets.UTF_8);
+  }
+
   @Override
   public int size() {
     return this.size;
@@ -94,25 +105,15 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
 
   @Override
   public boolean containsKey(Object key) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return false;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    return this.readIndex(keyContent) >= 0;
+    return this.readIndex((byte[]) key) >= 0;
   }
 
-  private boolean containsEntry(Map.Entry<?, ?> e) {
-    Object key = e.getKey();
-    Object value = e.getValue();
-    if (!(key instanceof String)) {
-      return false;
-    }
-    if (!(value instanceof Boolean)) {
-      return false;
-    }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
-    return idx >= 0 && this.values[idx] == (Boolean) value;
+  private boolean containsEntry(byte[] key, Boolean value) {
+    int idx = this.readIndex(key);
+    return idx >= 0 && this.values[idx] == value;
   }
 
   @Override
@@ -135,11 +136,14 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
 
   @Override
   public Boolean getOrDefault(Object key, Boolean defaultValue) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return defaultValue;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    return this.getImpl((byte[]) key, defaultValue);
+  }
+
+  private Boolean getImpl(byte[] key, Boolean defaultValue) {
+    int idx = this.readIndex((byte[]) key);
     if (idx < 0) {
       return defaultValue;
     }
@@ -147,19 +151,18 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
   }
 
   @Override
-  public Boolean put(String key, Boolean value) {
+  public Boolean put(byte[] key, Boolean value) {
     return this.putImpl(key, value, true);
   }
 
   @Override
-  public Boolean putIfAbsent(String key, Boolean value) {
+  public Boolean putIfAbsent(byte[] key, Boolean value) {
     return this.putImpl(key, value, false);
   }
 
-  private Boolean putImpl(String key, Boolean value, boolean shouldReplace) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+  private Boolean putImpl(byte[] key, Boolean value, boolean shouldReplace) {
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       Boolean prev = this.values[idx];
       if (shouldReplace) {
@@ -167,14 +170,13 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
       }
       return prev;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return null;
   }
 
   @Override
-  public Boolean replace(String key, Boolean value) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+  public Boolean replace(byte[] key, Boolean value) {
+    int idx = this.readIndex(key);
     if (idx >= 0) {
       Boolean prev = this.values[idx];
       this.values[idx] = value;
@@ -184,9 +186,8 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
   }
 
   @Override
-  public boolean replace(String key, Boolean oldValue, Boolean newValue) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+  public boolean replace(byte[] key, Boolean oldValue, Boolean newValue) {
+    int idx = this.readIndex(key);
     if (idx >= 0 && this.values[idx] == (Boolean) oldValue) {
       this.values[idx] = newValue;
       return true;
@@ -196,11 +197,14 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
 
   @Override
   public Boolean remove(Object key) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return null;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    return this.removeImpl((byte[]) key);
+  }
+
+  private Boolean removeImpl(byte[] key) {
+    int idx = this.readIndex((byte[]) key);
     if (idx >= 0) {
       Boolean result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
@@ -212,15 +216,18 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
 
   @Override
   public boolean remove(Object key, Object value) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return false;
     }
     if (!(value instanceof Boolean)) {
       return false;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
-    if (idx >= 0 && this.values[idx] == (Boolean) value) {
+    return this.removeImpl((byte[]) key, (Boolean) value);
+  }
+
+  private boolean removeImpl(byte[] key, Boolean value) {
+    int idx = this.readIndex(key);
+    if (idx >= 0 && this.values[idx] == value) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
       this.removeByIndex(idx);
       return true;
@@ -229,25 +236,24 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
   }
 
   @Override
-  public Boolean computeIfAbsent(String key, Function<? super String, ? extends Boolean> mappingFunction) {
+  public Boolean computeIfAbsent(byte[] key, Function<? super byte[], ? extends Boolean> mappingFunction) {
     return this.computeImpl(key, (k, _v) -> mappingFunction.apply(k), true, false);
   }
 
   @Override
-  public Boolean computeIfPresent(String key, BiFunction<? super String, ? super Boolean, ? extends Boolean> remappingFunction) {
+  public Boolean computeIfPresent(byte[] key, BiFunction<? super byte[], ? super Boolean, ? extends Boolean> remappingFunction) {
     return this.computeImpl(key, remappingFunction, false, true);
   }
 
   @Override
-  public Boolean compute(String key, BiFunction<? super String, ? super Boolean, ? extends Boolean> remappingFunction) {
+  public Boolean compute(byte[] key, BiFunction<? super byte[], ? super Boolean, ? extends Boolean> remappingFunction) {
     return this.computeImpl(key, remappingFunction, true, true);
   }
 
-  private Boolean computeImpl(String key, BiFunction<? super String, ? super Boolean, ? extends Boolean> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
+  private Boolean computeImpl(byte[] key, BiFunction<? super byte[], ? super Boolean, ? extends Boolean> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
     Objects.requireNonNull(remappingFunction);
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       Boolean result = null;
       if (shouldReplace) {
@@ -267,17 +273,16 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     if (value == null) {
       return null;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return value;
   }
 
   @Override
-  public Boolean merge(String key, Boolean value, BiFunction<? super Boolean, ? super Boolean, ? extends Boolean> remappingFunction) {
+  public Boolean merge(byte[] key, Boolean value, BiFunction<? super Boolean, ? super Boolean, ? extends Boolean> remappingFunction) {
     Objects.requireNonNull(remappingFunction);
     Objects.requireNonNull(value);
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       Boolean result = remappingFunction.apply(this.values[idx], value);
       if (result != null) {
@@ -287,23 +292,16 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
       }
       return result;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return value;
   }
 
   @Override
-  public void putAll(Map<? extends String, ? extends Boolean> m) {
-    for (Map.Entry<? extends String, ? extends Boolean> e : m.entrySet()) {
-      this.put(e.getKey(), e.getValue());
-    }
-  }
-
-  @Override
-  public void replaceAll(BiFunction<? super String, ? super Boolean, ? extends Boolean> function) {
+  public void replaceAll(BiFunction<? super byte[], ? super Boolean, ? extends Boolean> function) {
     Objects.requireNonNull(function);
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
-        String k = this.keyStorage.loadAsString(this.keys[i], StandardCharsets.UTF_8);
+        byte[] k = this.keyStorage.load(this.keys[i]);
         this.values[i] = function.apply(k, this.values[i]);
       }
     }
@@ -318,7 +316,7 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
   }
 
   @Override
-  public Set<String> keySet() {
+  public Set<byte[]> keySet() {
     return new KeySet(this);
   }
 
@@ -328,12 +326,14 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
   }
 
   @Override
-  public Set<Entry<String, Boolean>> entrySet() {
+  public Set<Entry<byte[], Boolean>> entrySet() {
     return new EntrySet(this);
   }
 
-  @Override
-  protected Object clone() throws CloneNotSupportedException {
+  /**
+   * Creates a shallow clone of this map, with separate key storage.
+   */
+  public BooleanPocketMap clone() {
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
     boolean[] valuesClone = Arrays.copyOf(this.values, this.values.length);
@@ -352,7 +352,7 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  protected static class KeySet extends AbstractSet<String> {
+  protected static class KeySet extends AbstractSet<byte[]> {
     private final BooleanPocketMap owner;
     protected KeySet(final BooleanPocketMap owner) {
       this.owner = owner;
@@ -364,7 +364,7 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<String> iterator() {
+    public final Iterator<byte[]> iterator() {
       return new KeyIterator(owner);
     }
     public final boolean contains(Object o) {
@@ -374,14 +374,14 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
       return owner.remove(key) != null;
     }
 
-    public final void forEach(Consumer<? super String> action) {
+    public final void forEach(Consumer<? super byte[]> action) {
       if (action == null) {
         throw new NullPointerException();
       }
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
         if ((owner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
-          action.accept(owner.keyStorage.loadAsString(owner.keys[src], StandardCharsets.UTF_8));
+          action.accept(owner.keyStorage.load(owner.keys[src]));
         }
       }
       // if (modCount != mc) {
@@ -425,13 +425,56 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     }
   }
 
-  protected static class Node implements Map.Entry<String, Boolean> {
-    private final BooleanPocketMap owner;
-    private final long keyRef;
+  protected static class Node extends NodeImpl implements Map.Entry<byte[], Boolean> {
+    protected Node(BooleanPocketMap owner, int index) {
+      super(owner, index);
+    }
+
+    @Override
+    public byte[] getKey() {
+      return this.getKeyAsBytes();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Map.Entry<?, ?>)) {
+        return false;
+      }
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
+    }
+  }
+
+  protected static class StringWrapperNode extends NodeImpl implements Map.Entry<String, Boolean> {
+    private final Charset charset;
+
+    protected StringWrapperNode(final BooleanPocketMap owner, final Charset charset, int index) {
+      super(owner, index);
+      this.charset = charset;
+    }
+
+    @Override
+    public String getKey() {
+      return this.getKeyAsString(this.charset);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Map.Entry<?, ?>)) {
+        return false;
+      }
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
+    }
+  }
+
+  protected static class NodeImpl {
+    protected final BooleanPocketMap owner;
+    protected final long keyRef;
     private int index;
     private int rehashCount;
 
-    protected Node(BooleanPocketMap owner, int index) {
+    protected NodeImpl(BooleanPocketMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -450,18 +493,18 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
       return this.index;
     }
 
-    @Override
-    public String getKey() {
-      long keyRef = owner.keys[this.getIndex()];
-      return owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
+    protected byte[] getKeyAsBytes() {
+      return owner.keyStorage.load(this.keyRef);
     }
 
-    @Override
+    protected String getKeyAsString(Charset charset) {
+      return owner.keyStorage.loadAsString(this.keyRef, charset);
+    }
+
     public Boolean getValue() {
       return owner.values[this.getIndex()];
     }
 
-    @Override
     public Boolean setValue(Boolean value) {
       int index = this.getIndex();
       Boolean prev = owner.values[index];
@@ -470,21 +513,12 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof Map.Entry<?, ?>)) {
-        return false;
-      }
-      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
-      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
-    }
-
-    @Override
     public int hashCode() {
-      return this.getKey().hashCode() ^ this.getValue().hashCode();
+      return this.getKeyAsBytes().hashCode() ^ this.getValue().hashCode();
     }
   }
 
-  protected static class EntrySet extends AbstractSet<Map.Entry<String, Boolean>> {
+  protected static class EntrySet extends AbstractSet<Map.Entry<byte[], Boolean>> {
     private final BooleanPocketMap owner;
     protected EntrySet(final BooleanPocketMap owner) {
       this.owner = owner;
@@ -496,7 +530,7 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Map.Entry<String, Boolean>> iterator() {
+    public final Iterator<Map.Entry<byte[], Boolean>> iterator() {
       return new EntryIterator(owner);
     }
 
@@ -504,7 +538,16 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
       if (!(o instanceof Map.Entry<?, ?>)) {
         return false;
       }
-      return owner.containsEntry((Map.Entry<?, ?>) o);
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      Object key = e.getKey();
+      Object value = e.getValue();
+      if (!(key instanceof byte[])) {
+        return false;
+      }
+      if (!(value instanceof Boolean)) {
+        return false;
+      }
+      return owner.containsEntry((byte[]) key, (Boolean) value);
     }
     public final boolean remove(Object o) {
       if (o instanceof Map.Entry<?, ?>) {
@@ -513,7 +556,7 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
       }
       return false;
     }
-    public final void forEach(Consumer<? super Map.Entry<String, Boolean>> action) {
+    public final void forEach(Consumer<? super Map.Entry<byte[], Boolean>> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -578,13 +621,26 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     }
   }
 
-  protected static class KeyIterator extends HashIterator implements Iterator<String> {
+  protected static class KeyIterator extends HashIterator implements Iterator<byte[]> {
     protected KeyIterator(final BooleanPocketMap owner) {
       super(owner);
     }
+    public final byte[] next() {
+      int idx = this.advance();
+      return owner.keyStorage.load(owner.keys[idx]);
+    }
+  }
+
+  protected static class StringWrapperKeyIterator extends HashIterator implements Iterator<String> {
+    private final Charset charset;
+
+    protected StringWrapperKeyIterator(final BooleanPocketMap owner, final Charset charset) {
+      super(owner);
+      this.charset = charset;
+    }
     public final String next() {
       int idx = this.advance();
-      return owner.keyStorage.loadAsString(owner.keys[idx], StandardCharsets.UTF_8);
+      return owner.keyStorage.loadAsString(owner.keys[idx], this.charset);
     }
   }
 
@@ -598,30 +654,290 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
     }
   }
 
-  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Boolean>> {
+  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<byte[], Boolean>> {
     protected EntryIterator(final BooleanPocketMap owner) {
       super(owner);
     }
-    public final Map.Entry<String, Boolean> next() {
+    public final Map.Entry<byte[], Boolean> next() {
       int idx = this.advance();
       return new Node(owner, idx);
+    }
+  }
+
+  protected static class StringWrapperEntryIterator extends HashIterator implements Iterator<Map.Entry<String, Boolean>> {
+    private final Charset charset;
+
+    protected StringWrapperEntryIterator(final BooleanPocketMap owner, final Charset charset) {
+      super(owner);
+      this.charset = charset;
+    }
+    public final Map.Entry<String, Boolean> next() {
+      int idx = this.advance();
+      return new StringWrapperNode(owner, this.charset, idx);
     }
   }
 
   // end section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  /** Index of first empty/tombstone slot in linear probe starting from hash(keyContent) */
+  public static class StringWrapper extends AbstractMap<String, Boolean> {
+    protected final BooleanPocketMap inner;
+    protected final Charset charset;
+
+    protected StringWrapper(final BooleanPocketMap inner, final Charset charset) {
+      this.inner = inner;
+      this.charset = charset;
+    }
+
+    @Override
+    public int size() {
+      return inner.size;
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return inner.isEmpty();
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.readIndex(keyContent) >= 0;
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+      return inner.containsValue(value);
+    }
+
+    @Override
+    public Boolean get(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.getImpl(keyContent, null);
+    }
+
+    @Override
+    public Boolean getOrDefault(Object key, Boolean defaultValue) {
+      if (!(key instanceof String)) {
+        return defaultValue;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.getImpl(keyContent, defaultValue);
+    }
+
+    @Override
+    public Boolean put(String key, Boolean value) {
+      return inner.putImpl(key.getBytes(this.charset), value, true);
+    }
+
+    @Override
+    public Boolean putIfAbsent(String key, Boolean value) {
+      return inner.putImpl(key.getBytes(this.charset), value, false);
+    }
+
+    @Override
+    public Boolean replace(String key, Boolean value) {
+      return inner.replace(key.getBytes(this.charset), value);
+    }
+
+    @Override
+    public boolean replace(String key, Boolean oldValue, Boolean newValue) {
+      return inner.replace(key.getBytes(this.charset), oldValue, newValue);
+    }
+
+    @Override
+    public Boolean remove(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.removeImpl(keyContent);
+    }
+
+    @Override
+    public boolean remove(Object key, Object value) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      if (!(value instanceof Boolean)) {
+        return false;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.removeImpl(keyContent, (Boolean) value);
+    }
+
+    @Override
+    public Boolean computeIfAbsent(String key, Function<? super String, ? extends Boolean> mappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, _v) -> mappingFunction.apply(key), true, false);
+    }
+
+    @Override
+    public Boolean computeIfPresent(String key, BiFunction<? super String, ? super Boolean, ? extends Boolean> remappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, v) -> remappingFunction.apply(key, v), false, true);
+    }
+
+    @Override
+    public Boolean compute(String key, BiFunction<? super String, ? super Boolean, ? extends Boolean> remappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, v) -> remappingFunction.apply(key, v), true, true);
+    }
+
+    @Override
+    public Boolean merge(String key, Boolean value, BiFunction<? super Boolean, ? super Boolean, ? extends Boolean> remappingFunction) {
+      return inner.merge(key.getBytes(this.charset), value, remappingFunction);
+    }
+
+    @Override
+    public void replaceAll(BiFunction<? super String, ? super Boolean, ? extends Boolean> function) {
+      Objects.requireNonNull(function);
+      for (int i = 0; i < inner.keys.length; i++) {
+        if ((inner.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
+          String k = inner.keyStorage.loadAsString(inner.keys[i], this.charset);
+          inner.values[i] = function.apply(k, inner.values[i]);
+        }
+      }
+    }
+
+    @Override
+    public void clear() {
+      inner.clear();
+    }
+
+    @Override
+    public Set<String> keySet() {
+      return new KeySet(this);
+    }
+
+    @Override
+    public Collection<Boolean> values() {
+      return inner.values();
+    }
+
+    @Override
+    public Set<Entry<String, Boolean>> entrySet() {
+      return new EntrySet(this);
+    }
+
+    /**
+     * Creates a shallow clone of this map, with separate key storage.
+     */
+    public StringWrapper clone() {
+      BooleanPocketMap innerClone = inner.clone();
+      return new StringWrapper(innerClone, this.charset);
+    }
+
+    protected static class KeySet extends AbstractSet<String> {
+      private final StringWrapper owner;
+      protected KeySet(final StringWrapper owner) {
+        this.owner = owner;
+      }
+
+      public final int size() {
+        return owner.inner.size;
+      }
+      public final void clear() {
+        owner.clear();
+      }
+      public final Iterator<String> iterator() {
+        return new StringWrapperKeyIterator(owner.inner, owner.charset);
+      }
+      public final boolean contains(Object o) {
+        return owner.containsKey(o);
+      }
+      public final boolean remove(Object key) {
+        return owner.remove(key) != null;
+      }
+
+      public final void forEach(Consumer<? super String> action) {
+        if (action == null) {
+          throw new NullPointerException();
+        }
+        // int mc = modCount;
+        for (int src = 0; src < owner.inner.keys.length; src++) {
+          if ((owner.inner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
+            action.accept(owner.inner.keyStorage.loadAsString(owner.inner.keys[src], owner.charset));
+          }
+        }
+        // if (modCount != mc) {
+        //  throw new ConcurrentModificationException();
+        // }
+      }
+    }
+
+    protected static class EntrySet extends AbstractSet<Map.Entry<String, Boolean>> {
+      private final StringWrapper owner;
+      protected EntrySet(final StringWrapper owner) {
+        this.owner = owner;
+      }
+
+      public final int size() {
+        return owner.inner.size;
+      }
+      public final void clear() {
+        owner.clear();
+      }
+      public final Iterator<Map.Entry<String, Boolean>> iterator() {
+        return new StringWrapperEntryIterator(owner.inner, owner.charset);
+      }
+
+      public final boolean contains(Object o) {
+        if (!(o instanceof Map.Entry<?, ?>)) {
+          return false;
+        }
+        Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+        Object key = e.getKey();
+        Object value = e.getValue();
+        if (!(key instanceof String)) {
+          return false;
+        }
+        if (!(value instanceof Boolean)) {
+          return false;
+        }
+        byte[] keyContent = ((String) key).getBytes(owner.charset);
+        return owner.inner.containsEntry(keyContent, (Boolean) value);
+      }
+      public final boolean remove(Object o) {
+        if (o instanceof Map.Entry<?, ?>) {
+          Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+          return owner.remove(e.getKey(), e.getValue());
+        }
+        return false;
+      }
+      public final void forEach(Consumer<? super Map.Entry<String, Boolean>> action) {
+        if (action == null) {
+          throw new NullPointerException();
+        }
+        // int mc = modCount;
+        for (int src = 0; src < owner.inner.keys.length; src++) {
+          if ((owner.inner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
+            action.accept(new StringWrapperNode(owner.inner, owner.charset, src));
+          }
+        }
+        // if (modCount != mc) {
+        //  throw new ConcurrentModificationException();
+        // }
+      }
+    }
+  }
+
+  /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
   private int insertionIndex(long[] keys, int hashUpper) {
     int h = hashUpper & (keys.length - 1);
+    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
-      h = (h + 1) & (keys.length - 1);
+      h = (h + distance) & (keys.length - 1);
+      distance++;
     }
     return h;
   }
 
   /**
-   * Attempts to find index whose stored key equals the given one, using a linear probe starting from
+   * Attempts to find index whose stored key equals the given one, using a quadratic probe starting from
    * hash(keyContent).
    *
    * Returns:
@@ -632,18 +948,21 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
    */
   private int readIndex(int hashUpper, int hashLower, byte[] keyContent) {
     int h = hashUpper & (this.keys.length - 1);
+    int distance = 1;
     int firstTombstone = -1;
     while ((this.keys[h] & ALIVE_H2_MASK) > 0) {
       if ((this.keys[h] & ALIVE_FLAG) == 0) {
         // Tombstone
         firstTombstone = firstTombstone < 0 ? h : firstTombstone;
-        h = (h + 1) & (this.keys.length - 1);
+        h = (h + distance) & (this.keys.length - 1);
+        distance++;
         continue;
       }
       if ((this.keys[h] & H2_MASK) == hashLower && this.keyStorage.equalsAt(this.keys[h], keyContent)) {
         return h;
       }
-      h = (h + 1) & (this.keys.length - 1);
+      h = (h + distance) & (this.keys.length - 1);
+      distance++;
     }
     if (firstTombstone >= 0) {
       return -firstTombstone - 1;
@@ -660,11 +979,13 @@ public class BooleanPocketMap extends AbstractMap<String, Boolean> implements Cl
   private int rereadIndex(long keyRef) {
     int hash = this.keyStorage.hashAt(keyRef);
     int h = (hash >>> H2_BITS) & (keys.length - 1);
+    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
       if (keys[h] == keyRef) {
         return h;
       }
-      h = (h + 1) & (keys.length - 1);
+      h = (h + distance) & (keys.length - 1);
+      distance++;
     }
     return -1;
   }

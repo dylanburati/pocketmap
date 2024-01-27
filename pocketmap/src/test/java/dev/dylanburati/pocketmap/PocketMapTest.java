@@ -19,19 +19,19 @@ import static dev.dylanburati.pocketmap.Helpers.*;
 
 class PocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new PocketMap<List<Integer>>(-1));
+    assertThrows(IllegalArgumentException.class, () -> PocketMap.<List<Integer>>newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    PocketMap<List<Integer>> m = new PocketMap<>(0);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(0);
     assertNull(m.put("", List.of(505, 10)));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", List.of(505, 10)));
     assertEquals(1, m.size());
@@ -41,12 +41,12 @@ class PocketMapTest {
   }
 
   @Test void testPutAll() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", List.of(505, 10)));
     assertEquals(1, m.size());
     assertNull(m.put("b", List.of(606, 12)));
-    PocketMap<List<Integer>> m2 = new PocketMap<>();
+    Map<String, List<Integer>> m2 = PocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals(List.of(505, 10), m.get("a"));
@@ -54,7 +54,7 @@ class PocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -69,7 +69,7 @@ class PocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    PocketMap<List<Integer>> m = new PocketMap<>(initialCapacity);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(initialCapacity);
     IntFunction<List<Integer>> toValue = v -> List.of(v);
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -125,7 +125,7 @@ class PocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertNull(m.put("a", List.of(505, 10)));
     assertEquals(List.of(505, 10), m.get("a"));
     assertEquals(List.of(505, 10), m.put("a", List.of(606, 12)));
@@ -133,7 +133,7 @@ class PocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertNull(m.put("a", List.of(505, 10)));
     assertEquals(List.of(505, 10), m.get("a"));
 
@@ -155,7 +155,7 @@ class PocketMapTest {
   }
 
   @Test void testReplace() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertNull(m.replace("a", List.of(505, 10)));
     assertFalse(m.containsKey("a"));
     m.put("a", List.of(505, 10));
@@ -164,7 +164,7 @@ class PocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", List.of(505, 10)));
     assertFalse(m.isEmpty());
@@ -173,21 +173,21 @@ class PocketMapTest {
   }
 
   @Test void testRemove() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertNull(m.put("a", List.of(505, 10)));
     assertEquals(List.of(505, 10), m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    PocketMap<List<Integer>> m = new PocketMap<>(8);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(8);
     List<List<Integer>> values = Stream.generate(() -> List.of(List.of(505, 10), List.of(606, 12), List.of(707, 14), List.of(808, 16))).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (List<Integer> v : values) {
       String k = Integer.toString(m.size());
@@ -208,7 +208,7 @@ class PocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    PocketMap<List<Integer>> m = new PocketMap<>(8);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(8);
     List<List<Integer>> values = Stream.generate(() -> List.of(List.of(505, 10), List.of(606, 12), List.of(707, 14), List.of(808, 16))).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (List<Integer> v : values) {
@@ -253,7 +253,7 @@ class PocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    PocketMap<List<Integer>> m = new PocketMap<>(8);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(8);
     List<List<Integer>> values = Stream.generate(() -> List.of(List.of(505, 10), List.of(606, 12), List.of(707, 14), List.of(808, 16))).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (List<Integer> v : values) {
@@ -276,7 +276,7 @@ class PocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     m.put("a", List.of(505, 10));
     assertFalse(m.remove("a", List.of(606, 12)));
     assertTrue(m.remove("a", List.of(505, 10)));
@@ -284,7 +284,7 @@ class PocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
     m.put("a", List.of(505, 10));
     assertFalse(m.replace("a", List.of(606, 12), List.of(808, 16)));
     assertTrue(m.replace("a", List.of(505, 10), List.of(808, 16)));
@@ -292,8 +292,8 @@ class PocketMapTest {
   }
 
   @Test void testEquals() {
-    PocketMap<List<Integer>> m = new PocketMap<>();
-    PocketMap<List<Integer>> m2 = new PocketMap<>();
+    Map<String, List<Integer>> m = PocketMap.newUtf8();
+    Map<String, List<Integer>> m2 = PocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", List.of(505, 10));
     m.put("bb", List.of(606, 12));
@@ -306,7 +306,7 @@ class PocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    PocketMap<List<Integer>> m = new PocketMap<>(8);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(8);
     m.putAll(Map.of("a", List.of(505, 10), "bb", List.of(606, 12), "ccc", List.of(707, 14), "dddd", List.of(808, 16)));
 
     // update
@@ -368,7 +368,7 @@ class PocketMapTest {
   }
 
   @Test void testCompute() {
-    PocketMap<List<Integer>> m = new PocketMap<>(8);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(8);
     m.putAll(Map.of("a", List.of(505, 10), "bb", List.of(606, 12), "ccc", List.of(707, 14), "dddd", List.of(808, 16)));
 
     // update
@@ -414,7 +414,7 @@ class PocketMapTest {
   }
 
   @Test void testMerge() {
-    PocketMap<List<Integer>> m = new PocketMap<>(8);
+    Map<String, List<Integer>> m = PocketMap.newUtf8(8);
     m.putAll(Map.of("a", List.of(505, 10), "bb", List.of(606, 12), "ccc", List.of(707, 14)));
 
     BiFunction<List<Integer>, List<Integer>, List<Integer>> remappingFunction = (v1, v2) -> {

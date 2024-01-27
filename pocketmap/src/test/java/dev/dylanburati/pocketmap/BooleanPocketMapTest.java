@@ -19,19 +19,19 @@ import java.util.stream.Stream;
 
 class BooleanPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new BooleanPocketMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> BooleanPocketMap.newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    BooleanPocketMap m = new BooleanPocketMap(0);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(0);
     assertNull(m.put("", false));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", false));
     assertEquals(1, m.size());
@@ -41,12 +41,12 @@ class BooleanPocketMapTest {
   }
 
   @Test void testPutAll() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", false));
     assertEquals(1, m.size());
     assertNull(m.put("b", true));
-    BooleanPocketMap m2 = new BooleanPocketMap();
+    Map<String, Boolean> m2 = BooleanPocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals(false, m.get("a"));
@@ -54,7 +54,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -69,7 +69,7 @@ class BooleanPocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    BooleanPocketMap m = new BooleanPocketMap(initialCapacity);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(initialCapacity);
     IntFunction<Boolean> toValue = (v) -> v % 2 == 0;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -125,7 +125,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertNull(m.put("a", false));
     assertEquals(false, m.get("a"));
     assertEquals(false, m.put("a", true));
@@ -133,7 +133,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertNull(m.put("a", false));
     assertEquals(false, m.get("a"));
 
@@ -155,7 +155,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testReplace() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertNull(m.replace("a", false));
     assertFalse(m.containsKey("a"));
     m.put("a", false);
@@ -164,7 +164,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", false));
     assertFalse(m.isEmpty());
@@ -173,21 +173,21 @@ class BooleanPocketMapTest {
   }
 
   @Test void testRemove() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertNull(m.put("a", false));
     assertEquals(false, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    BooleanPocketMap m = new BooleanPocketMap(8);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(8);
     List<Boolean> values = Stream.generate(() -> List.of(false, true, false, true)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (Boolean v : values) {
       String k = Integer.toString(m.size());
@@ -208,7 +208,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    BooleanPocketMap m = new BooleanPocketMap(8);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(8);
     List<Boolean> values = Stream.generate(() -> List.of(false, true, false, true)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Boolean v : values) {
@@ -253,7 +253,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    BooleanPocketMap m = new BooleanPocketMap(8);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(8);
     List<Boolean> values = Stream.generate(() -> List.of(false, true, false, true)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Boolean v : values) {
@@ -276,7 +276,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     m.put("a", false);
     assertFalse(m.remove("a", true));
     assertTrue(m.remove("a", false));
@@ -284,7 +284,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    BooleanPocketMap m = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
     m.put("a", false);
     assertFalse(m.replace("a", true, true));
     assertTrue(m.replace("a", false, true));
@@ -292,8 +292,8 @@ class BooleanPocketMapTest {
   }
 
   @Test void testEquals() {
-    BooleanPocketMap m = new BooleanPocketMap();
-    BooleanPocketMap m2 = new BooleanPocketMap();
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8();
+    Map<String, Boolean> m2 = BooleanPocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", false);
     m.put("bb", true);
@@ -306,7 +306,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    BooleanPocketMap m = new BooleanPocketMap(8);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(8);
     m.putAll(Map.of("a", false, "bb", true, "ccc", false, "dddd", true));
 
     // update
@@ -368,7 +368,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testCompute() {
-    BooleanPocketMap m = new BooleanPocketMap(8);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(8);
     m.putAll(Map.of("a", false, "bb", true, "ccc", false, "dddd", true));
 
     // update
@@ -414,7 +414,7 @@ class BooleanPocketMapTest {
   }
 
   @Test void testMerge() {
-    BooleanPocketMap m = new BooleanPocketMap(8);
+    Map<String, Boolean> m = BooleanPocketMap.newUtf8(8);
     m.putAll(Map.of("a", false, "bb", true, "ccc", false));
 
     BiFunction<Boolean, Boolean, Boolean> remappingFunction = (v1, v2) -> {

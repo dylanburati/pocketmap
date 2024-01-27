@@ -19,19 +19,19 @@ import java.util.stream.Stream;
 
 class FloatPocketMapTest {
   @Test void testCreateNegativeCapacity() {
-    assertThrows(IllegalArgumentException.class, () -> new FloatPocketMap(-1));
+    assertThrows(IllegalArgumentException.class, () -> FloatPocketMap.newUtf8(-1));
   }
 
   // should still be able to insert
   @Test void testCreateZeroCapacity() {
-    FloatPocketMap m = new FloatPocketMap(0);
+    Map<String, Float> m = FloatPocketMap.newUtf8(0);
     assertNull(m.put("", 5.5f));
     assertTrue(m.containsKey(""));
     assertFalse(m.containsKey("\u001d\r\u0016\u000f\u0004\u001b\u0002"));
   }
 
   @Test void testInsert() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 5.5f));
     assertEquals(1, m.size());
@@ -41,12 +41,12 @@ class FloatPocketMapTest {
   }
 
   @Test void testPutAll() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertEquals(0, m.size());
     assertNull(m.put("a", 5.5f));
     assertEquals(1, m.size());
     assertNull(m.put("b", 6.25f));
-    FloatPocketMap m2 = new FloatPocketMap();
+    Map<String, Float> m2 = FloatPocketMap.newUtf8();
     m2.putAll(m);
     assertEquals(m2.size(), 2);
     assertEquals(5.5f, m.get("a"));
@@ -54,7 +54,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testInsertLongKeys() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     StringBuilder bldr = new StringBuilder();
     for (int i = 16; i < 65536; i += 16) {
       bldr.append("0011223344556677");
@@ -69,7 +69,7 @@ class FloatPocketMapTest {
   @ParameterizedTest
   @ValueSource(ints = {8, 512, 4096})
   void testLotsOfInsertions(int initialCapacity) {
-    FloatPocketMap m = new FloatPocketMap(initialCapacity);
+    Map<String, Float> m = FloatPocketMap.newUtf8(initialCapacity);
     IntFunction<Float> toValue = (v) -> (float) v;
     for (int loop = 0; loop < 10; loop++) {
       assertTrue(m.isEmpty());
@@ -125,7 +125,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testInsertOverwrite() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertNull(m.put("a", 5.5f));
     assertEquals(5.5f, m.get("a"));
     assertEquals(5.5f, m.put("a", 6.25f));
@@ -133,7 +133,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testInsertAndRemoveWithCollisions() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertNull(m.put("a", 5.5f));
     assertEquals(5.5f, m.get("a"));
 
@@ -155,7 +155,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testReplace() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertNull(m.replace("a", 5.5f));
     assertFalse(m.containsKey("a"));
     m.put("a", 5.5f);
@@ -164,7 +164,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testIsEmpty() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertTrue(m.isEmpty());
     assertNull(m.put("a", 5.5f));
     assertFalse(m.isEmpty());
@@ -173,21 +173,21 @@ class FloatPocketMapTest {
   }
 
   @Test void testRemove() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertNull(m.put("a", 5.5f));
     assertEquals(5.5f, m.remove("a"));
     assertNull(m.remove("a"));
   }
 
   @Test void testEmptyIterators() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     assertFalse(m.keySet().iterator().hasNext());
     assertFalse(m.values().iterator().hasNext());
     assertFalse(m.entrySet().iterator().hasNext());
   }
 
   @Test void testEntryIterator() {
-    FloatPocketMap m = new FloatPocketMap(8);
+    Map<String, Float> m = FloatPocketMap.newUtf8(8);
     List<Float> values = Stream.generate(() -> List.of(5.5f, 6.25f, 7.125f, 8.0625f)).limit(8).flatMap(List::stream).collect(Collectors.toList());
     for (Float v : values) {
       String k = Integer.toString(m.size());
@@ -208,7 +208,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testEntryIteratorMutating() {
-    FloatPocketMap m = new FloatPocketMap(8);
+    Map<String, Float> m = FloatPocketMap.newUtf8(8);
     List<Float> values = Stream.generate(() -> List.of(5.5f, 6.25f, 7.125f, 8.0625f)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Float v : values) {
@@ -253,7 +253,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testReplaceAll() {
-    FloatPocketMap m = new FloatPocketMap(8);
+    Map<String, Float> m = FloatPocketMap.newUtf8(8);
     List<Float> values = Stream.generate(() -> List.of(5.5f, 6.25f, 7.125f, 8.0625f)).limit(8).flatMap(List::stream).collect(Collectors.toList());
 
     for (Float v : values) {
@@ -276,7 +276,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testRemoveEntry() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     m.put("a", 5.5f);
     assertFalse(m.remove("a", 6.25f));
     assertTrue(m.remove("a", 5.5f));
@@ -284,7 +284,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testReplaceEntry() {
-    FloatPocketMap m = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
     m.put("a", 5.5f);
     assertFalse(m.replace("a", 6.25f, 8.0625f));
     assertTrue(m.replace("a", 5.5f, 8.0625f));
@@ -292,8 +292,8 @@ class FloatPocketMapTest {
   }
 
   @Test void testEquals() {
-    FloatPocketMap m = new FloatPocketMap();
-    FloatPocketMap m2 = new FloatPocketMap();
+    Map<String, Float> m = FloatPocketMap.newUtf8();
+    Map<String, Float> m2 = FloatPocketMap.newUtf8();
     assertFalse(m.equals(null));
     m.put("a", 5.5f);
     m.put("bb", 6.25f);
@@ -306,7 +306,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testComputeIfs() {
-    FloatPocketMap m = new FloatPocketMap(8);
+    Map<String, Float> m = FloatPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 5.5f, "bb", 6.25f, "ccc", 7.125f, "dddd", 8.0625f));
 
     // update
@@ -368,7 +368,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testCompute() {
-    FloatPocketMap m = new FloatPocketMap(8);
+    Map<String, Float> m = FloatPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 5.5f, "bb", 6.25f, "ccc", 7.125f, "dddd", 8.0625f));
 
     // update
@@ -414,7 +414,7 @@ class FloatPocketMapTest {
   }
 
   @Test void testMerge() {
-    FloatPocketMap m = new FloatPocketMap(8);
+    Map<String, Float> m = FloatPocketMap.newUtf8(8);
     m.putAll(Map.of("a", 5.5f, "bb", 6.25f, "ccc", 7.125f));
 
     BiFunction<Float, Float, Float> remappingFunction = (v1, v2) -> {

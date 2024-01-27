@@ -6,37 +6,37 @@ import sys
 
 configs = [
     {
-        "val": {"t": "boolean", "view": "Boolean", "disp": "Boolean"},
+        "val": {"t": "boolean", "view": "Boolean", "disp": "Boolean", "boxed": "Boolean"},
         "example_values": ["false", "true"],
         "intLambda": "(v) -> v % 2 == 0",
         "unary_pre": "!",
     },
     {
-        "val": {"t": "byte", "view": "Byte", "disp": "Byte"},
+        "val": {"t": "byte", "view": "Byte", "disp": "Byte", "boxed": "Byte"},
         "example_values": ["(byte)55", "(byte)66", "(byte)77", "(byte)88"],
         "demote": "(byte) ",
         "intLambda": "(v) -> (byte) v",
         "unary_pre": "(byte) -",
     },
     {
-        "val": {"t": "short", "view": "Short", "disp": "Short"},
+        "val": {"t": "short", "view": "Short", "disp": "Short", "boxed": "Short"},
         "example_values": ["(short)505", "(short)606", "(short)707", "(short)808"],
         "demote": "(short) ",
         "intLambda": "(v) -> (short) v",
         "unary_pre": "(short) -",
     },
     {
-        "val": {"t": "long", "view": "Long", "disp": "Long"},
+        "val": {"t": "long", "view": "Long", "disp": "Long", "boxed": "Long"},
         "example_values": ["505L", "606L", "707L", "808L"],
         "intLambda": "(v) -> (long) v",
     },
     {
-        "val": {"t": "float", "view": "Float", "disp": "Float"},
+        "val": {"t": "float", "view": "Float", "disp": "Float", "boxed": "Float"},
         "example_values": ["5.5f", "6.25f", "7.125f", "8.0625f"],
         "intLambda": "(v) -> (float) v",
     },
     {
-        "val": {"t": "double", "view": "Double", "disp": "Double"},
+        "val": {"t": "double", "view": "Double", "disp": "Double", "boxed": "Double"},
         "example_values": ["5.5", "6.25", "7.125", "8.0625"],
         "intLambda": "(v) -> (double) v",
     },
@@ -46,10 +46,11 @@ src_only_configs = [
         "val": {
             "t": "Object",
             "view": "V",
+            "disp": "",
+            "boxed": "Object",
             "generic": "<V>",
             "generic_infer": "<>",
             "generic_any": "<?>",
-            "disp": "",
             "object": True,
         }
     },
@@ -115,7 +116,9 @@ def fill_templates(configs, lines):
             if count_arg := template_match.group(2):
                 replace_count = int(count_arg[1:-1])
             jq_script = (
-                r'def equals: if .[0] then "\(.[1]).equals(\(.[2]))" else "\(.[1]) == (\(.[3])) \(.[2])" end; '
+                r'def equals: if .[0] then "\(.[1]).equals(\(.[2]))"'
+                r' elif length > 3 then "\(.[1]) == (\(.[3])) \(.[2])" else "\(.[1]) == \(.[2])" end; '
+                r'def cast: if .[0] == "Object" then .[1] else "(\(.[0])) \(.[1])" end; '
                 r'def castUnsafe: if .[0] then "castUnsafe(\(.[1]))" else .[1] end; '
                 f'"{template_match.group(3)}"'
             )
@@ -158,7 +161,7 @@ def fill_templates(configs, lines):
 
 
 int_config = {
-    "val": {"t": "int", "view": "Integer", "disp": "Int"},
+    "val": {"t": "int", "view": "Integer", "disp": "Int", "boxed": "Integer"},
     "intLambda": "(v) -> v",
     "keep": True,
 }

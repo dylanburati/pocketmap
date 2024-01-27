@@ -1,5 +1,6 @@
 package dev.dylanburati.pocketmap;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
 import java.util.AbstractMap;
@@ -28,7 +29,7 @@ import static dev.dylanburati.pocketmap.KeyStorage.*;
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
+public class PocketMap<V> extends AbstractMap<byte[], V> {
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
@@ -82,6 +83,16 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     this.tombstoneCount = 0;
   }
 
+  public static <V>StringWrapper<V> newUtf8() {
+    return new StringWrapper<>(new PocketMap<>(), StandardCharsets.UTF_8);
+  }
+  public static <V>StringWrapper<V> newUtf8(int initialCapacity) {
+    return new StringWrapper<>(new PocketMap<>(initialCapacity), StandardCharsets.UTF_8);
+  }
+  public static <V>StringWrapper<V> newUtf8(int initialCapacity, final Hasher hasher) {
+    return new StringWrapper<>(new PocketMap<>(initialCapacity, hasher), StandardCharsets.UTF_8);
+  }
+
   @Override
   public int size() {
     return this.size;
@@ -94,21 +105,14 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
 
   @Override
   public boolean containsKey(Object key) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return false;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    return this.readIndex(keyContent) >= 0;
+    return this.readIndex((byte[]) key) >= 0;
   }
 
-  private boolean containsEntry(Map.Entry<?, ?> e) {
-    Object key = e.getKey();
-    Object value = e.getValue();
-    if (!(key instanceof String)) {
-      return false;
-    }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+  private boolean containsEntry(byte[] key, Object value) {
+    int idx = this.readIndex(key);
     return idx >= 0 && this.values[idx].equals(value);
   }
 
@@ -133,11 +137,14 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
 
   @Override
   public V getOrDefault(Object key, V defaultValue) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return defaultValue;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    return this.getImpl((byte[]) key, defaultValue);
+  }
+
+  private V getImpl(byte[] key, V defaultValue) {
+    int idx = this.readIndex((byte[]) key);
     if (idx < 0) {
       return defaultValue;
     }
@@ -145,19 +152,18 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
   }
 
   @Override
-  public V put(String key, V value) {
+  public V put(byte[] key, V value) {
     return this.putImpl(key, value, true);
   }
 
   @Override
-  public V putIfAbsent(String key, V value) {
+  public V putIfAbsent(byte[] key, V value) {
     return this.putImpl(key, value, false);
   }
 
-  private V putImpl(String key, V value, boolean shouldReplace) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+  private V putImpl(byte[] key, V value, boolean shouldReplace) {
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       V prev = castUnsafe(this.values[idx]);
       if (shouldReplace) {
@@ -165,14 +171,13 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
       }
       return prev;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return null;
   }
 
   @Override
-  public V replace(String key, V value) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+  public V replace(byte[] key, V value) {
+    int idx = this.readIndex(key);
     if (idx >= 0) {
       V prev = castUnsafe(this.values[idx]);
       this.values[idx] = value;
@@ -182,9 +187,8 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
   }
 
   @Override
-  public boolean replace(String key, V oldValue, V newValue) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+  public boolean replace(byte[] key, V oldValue, V newValue) {
+    int idx = this.readIndex(key);
     if (idx >= 0 && this.values[idx].equals(oldValue)) {
       this.values[idx] = newValue;
       return true;
@@ -194,11 +198,14 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
 
   @Override
   public V remove(Object key) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return null;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    return this.removeImpl((byte[]) key);
+  }
+
+  private V removeImpl(byte[] key) {
+    int idx = this.readIndex((byte[]) key);
     if (idx >= 0) {
       V result = castUnsafe(this.values[idx]);
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
@@ -210,11 +217,14 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
 
   @Override
   public boolean remove(Object key, Object value) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return false;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    return this.removeImpl((byte[]) key, value);
+  }
+
+  private boolean removeImpl(byte[] key, Object value) {
+    int idx = this.readIndex(key);
     if (idx >= 0 && this.values[idx].equals(value)) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
       this.removeByIndex(idx);
@@ -224,25 +234,24 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
   }
 
   @Override
-  public V computeIfAbsent(String key, Function<? super String, ? extends V> mappingFunction) {
+  public V computeIfAbsent(byte[] key, Function<? super byte[], ? extends V> mappingFunction) {
     return this.computeImpl(key, (k, _v) -> mappingFunction.apply(k), true, false);
   }
 
   @Override
-  public V computeIfPresent(String key, BiFunction<? super String, ? super V, ? extends V> remappingFunction) {
+  public V computeIfPresent(byte[] key, BiFunction<? super byte[], ? super V, ? extends V> remappingFunction) {
     return this.computeImpl(key, remappingFunction, false, true);
   }
 
   @Override
-  public V compute(String key, BiFunction<? super String, ? super V, ? extends V> remappingFunction) {
+  public V compute(byte[] key, BiFunction<? super byte[], ? super V, ? extends V> remappingFunction) {
     return this.computeImpl(key, remappingFunction, true, true);
   }
 
-  private V computeImpl(String key, BiFunction<? super String, ? super V, ? extends V> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
+  private V computeImpl(byte[] key, BiFunction<? super byte[], ? super V, ? extends V> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
     Objects.requireNonNull(remappingFunction);
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       V result = null;
       if (shouldReplace) {
@@ -262,17 +271,16 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     if (value == null) {
       return null;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return value;
   }
 
   @Override
-  public V merge(String key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+  public V merge(byte[] key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
     Objects.requireNonNull(remappingFunction);
     Objects.requireNonNull(value);
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       V result = remappingFunction.apply(castUnsafe(this.values[idx]), value);
       if (result != null) {
@@ -282,23 +290,16 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
       }
       return result;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return value;
   }
 
   @Override
-  public void putAll(Map<? extends String, ? extends V> m) {
-    for (Map.Entry<? extends String, ? extends V> e : m.entrySet()) {
-      this.put(e.getKey(), e.getValue());
-    }
-  }
-
-  @Override
-  public void replaceAll(BiFunction<? super String, ? super V, ? extends V> function) {
+  public void replaceAll(BiFunction<? super byte[], ? super V, ? extends V> function) {
     Objects.requireNonNull(function);
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
-        String k = this.keyStorage.loadAsString(this.keys[i], StandardCharsets.UTF_8);
+        byte[] k = this.keyStorage.load(this.keys[i]);
         this.values[i] = function.apply(k, castUnsafe(this.values[i]));
       }
     }
@@ -313,7 +314,7 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
   }
 
   @Override
-  public Set<String> keySet() {
+  public Set<byte[]> keySet() {
     return new KeySet(this);
   }
 
@@ -323,12 +324,14 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
   }
 
   @Override
-  public Set<Entry<String, V>> entrySet() {
+  public Set<Entry<byte[], V>> entrySet() {
     return new EntrySet<>(this);
   }
 
-  @Override
-  protected Object clone() throws CloneNotSupportedException {
+  /**
+   * Creates a shallow clone of this map, with separate key storage.
+   */
+  public PocketMap<V> clone() {
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
     Object[] valuesClone = Arrays.copyOf(this.values, this.values.length);
@@ -347,7 +350,7 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  protected static class KeySet extends AbstractSet<String> {
+  protected static class KeySet extends AbstractSet<byte[]> {
     private final PocketMap<?> owner;
     protected KeySet(final PocketMap<?> owner) {
       this.owner = owner;
@@ -359,7 +362,7 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<String> iterator() {
+    public final Iterator<byte[]> iterator() {
       return new KeyIterator<>(owner);
     }
     public final boolean contains(Object o) {
@@ -369,14 +372,14 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
       return owner.remove(key) != null;
     }
 
-    public final void forEach(Consumer<? super String> action) {
+    public final void forEach(Consumer<? super byte[]> action) {
       if (action == null) {
         throw new NullPointerException();
       }
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
         if ((owner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
-          action.accept(owner.keyStorage.loadAsString(owner.keys[src], StandardCharsets.UTF_8));
+          action.accept(owner.keyStorage.load(owner.keys[src]));
         }
       }
       // if (modCount != mc) {
@@ -420,13 +423,56 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     }
   }
 
-  protected static class Node<V> implements Map.Entry<String, V> {
-    private final PocketMap<V> owner;
-    private final long keyRef;
+  protected static class Node<V> extends NodeImpl<V> implements Map.Entry<byte[], V> {
+    protected Node(PocketMap<V> owner, int index) {
+      super(owner, index);
+    }
+
+    @Override
+    public byte[] getKey() {
+      return this.getKeyAsBytes();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Map.Entry<?, ?>)) {
+        return false;
+      }
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
+    }
+  }
+
+  protected static class StringWrapperNode<V> extends NodeImpl<V> implements Map.Entry<String, V> {
+    private final Charset charset;
+
+    protected StringWrapperNode(final PocketMap<V> owner, final Charset charset, int index) {
+      super(owner, index);
+      this.charset = charset;
+    }
+
+    @Override
+    public String getKey() {
+      return this.getKeyAsString(this.charset);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Map.Entry<?, ?>)) {
+        return false;
+      }
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
+    }
+  }
+
+  protected static class NodeImpl<V> {
+    protected final PocketMap<V> owner;
+    protected final long keyRef;
     private int index;
     private int rehashCount;
 
-    protected Node(PocketMap<V> owner, int index) {
+    protected NodeImpl(PocketMap<V> owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -445,18 +491,18 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
       return this.index;
     }
 
-    @Override
-    public String getKey() {
-      long keyRef = owner.keys[this.getIndex()];
-      return owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
+    protected byte[] getKeyAsBytes() {
+      return owner.keyStorage.load(this.keyRef);
     }
 
-    @Override
+    protected String getKeyAsString(Charset charset) {
+      return owner.keyStorage.loadAsString(this.keyRef, charset);
+    }
+
     public V getValue() {
       return castUnsafe(owner.values[this.getIndex()]);
     }
 
-    @Override
     public V setValue(V value) {
       int index = this.getIndex();
       V prev = castUnsafe(owner.values[index]);
@@ -465,21 +511,12 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof Map.Entry<?, ?>)) {
-        return false;
-      }
-      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
-      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
-    }
-
-    @Override
     public int hashCode() {
-      return this.getKey().hashCode() ^ this.getValue().hashCode();
+      return this.getKeyAsBytes().hashCode() ^ this.getValue().hashCode();
     }
   }
 
-  protected static class EntrySet<V> extends AbstractSet<Map.Entry<String, V>> {
+  protected static class EntrySet<V> extends AbstractSet<Map.Entry<byte[], V>> {
     private final PocketMap<V> owner;
     protected EntrySet(final PocketMap<V> owner) {
       this.owner = owner;
@@ -491,7 +528,7 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Map.Entry<String, V>> iterator() {
+    public final Iterator<Map.Entry<byte[], V>> iterator() {
       return new EntryIterator<>(owner);
     }
 
@@ -499,7 +536,13 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
       if (!(o instanceof Map.Entry<?, ?>)) {
         return false;
       }
-      return owner.containsEntry((Map.Entry<?, ?>) o);
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      Object key = e.getKey();
+      Object value = e.getValue();
+      if (!(key instanceof byte[])) {
+        return false;
+      }
+      return owner.containsEntry((byte[]) key, value);
     }
     public final boolean remove(Object o) {
       if (o instanceof Map.Entry<?, ?>) {
@@ -508,7 +551,7 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
       }
       return false;
     }
-    public final void forEach(Consumer<? super Map.Entry<String, V>> action) {
+    public final void forEach(Consumer<? super Map.Entry<byte[], V>> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -573,13 +616,26 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     }
   }
 
-  protected static class KeyIterator<V> extends HashIterator<V> implements Iterator<String> {
+  protected static class KeyIterator<V> extends HashIterator<V> implements Iterator<byte[]> {
     protected KeyIterator(final PocketMap<V> owner) {
       super(owner);
     }
+    public final byte[] next() {
+      int idx = this.advance();
+      return owner.keyStorage.load(owner.keys[idx]);
+    }
+  }
+
+  protected static class StringWrapperKeyIterator<V> extends HashIterator<V> implements Iterator<String> {
+    private final Charset charset;
+
+    protected StringWrapperKeyIterator(final PocketMap<V> owner, final Charset charset) {
+      super(owner);
+      this.charset = charset;
+    }
     public final String next() {
       int idx = this.advance();
-      return owner.keyStorage.loadAsString(owner.keys[idx], StandardCharsets.UTF_8);
+      return owner.keyStorage.loadAsString(owner.keys[idx], this.charset);
     }
   }
 
@@ -593,30 +649,284 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
     }
   }
 
-  protected static class EntryIterator<V> extends HashIterator<V> implements Iterator<Map.Entry<String, V>> {
+  protected static class EntryIterator<V> extends HashIterator<V> implements Iterator<Map.Entry<byte[], V>> {
     protected EntryIterator(final PocketMap<V> owner) {
       super(owner);
     }
-    public final Map.Entry<String, V> next() {
+    public final Map.Entry<byte[], V> next() {
       int idx = this.advance();
       return new Node<>(owner, idx);
+    }
+  }
+
+  protected static class StringWrapperEntryIterator<V> extends HashIterator<V> implements Iterator<Map.Entry<String, V>> {
+    private final Charset charset;
+
+    protected StringWrapperEntryIterator(final PocketMap<V> owner, final Charset charset) {
+      super(owner);
+      this.charset = charset;
+    }
+    public final Map.Entry<String, V> next() {
+      int idx = this.advance();
+      return new StringWrapperNode<>(owner, this.charset, idx);
     }
   }
 
   // end section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  /** Index of first empty/tombstone slot in linear probe starting from hash(keyContent) */
+  public static class StringWrapper<V> extends AbstractMap<String, V> {
+    protected final PocketMap<V> inner;
+    protected final Charset charset;
+
+    protected StringWrapper(final PocketMap<V> inner, final Charset charset) {
+      this.inner = inner;
+      this.charset = charset;
+    }
+
+    @Override
+    public int size() {
+      return inner.size;
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return inner.isEmpty();
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.readIndex(keyContent) >= 0;
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+      return inner.containsValue(value);
+    }
+
+    @Override
+    public V get(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.getImpl(keyContent, null);
+    }
+
+    @Override
+    public V getOrDefault(Object key, V defaultValue) {
+      if (!(key instanceof String)) {
+        return defaultValue;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.getImpl(keyContent, defaultValue);
+    }
+
+    @Override
+    public V put(String key, V value) {
+      return inner.putImpl(key.getBytes(this.charset), value, true);
+    }
+
+    @Override
+    public V putIfAbsent(String key, V value) {
+      return inner.putImpl(key.getBytes(this.charset), value, false);
+    }
+
+    @Override
+    public V replace(String key, V value) {
+      return inner.replace(key.getBytes(this.charset), value);
+    }
+
+    @Override
+    public boolean replace(String key, V oldValue, V newValue) {
+      return inner.replace(key.getBytes(this.charset), oldValue, newValue);
+    }
+
+    @Override
+    public V remove(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.removeImpl(keyContent);
+    }
+
+    @Override
+    public boolean remove(Object key, Object value) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.removeImpl(keyContent, value);
+    }
+
+    @Override
+    public V computeIfAbsent(String key, Function<? super String, ? extends V> mappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, _v) -> mappingFunction.apply(key), true, false);
+    }
+
+    @Override
+    public V computeIfPresent(String key, BiFunction<? super String, ? super V, ? extends V> remappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, v) -> remappingFunction.apply(key, v), false, true);
+    }
+
+    @Override
+    public V compute(String key, BiFunction<? super String, ? super V, ? extends V> remappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, v) -> remappingFunction.apply(key, v), true, true);
+    }
+
+    @Override
+    public V merge(String key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+      return inner.merge(key.getBytes(this.charset), value, remappingFunction);
+    }
+
+    @Override
+    public void replaceAll(BiFunction<? super String, ? super V, ? extends V> function) {
+      Objects.requireNonNull(function);
+      for (int i = 0; i < inner.keys.length; i++) {
+        if ((inner.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
+          String k = inner.keyStorage.loadAsString(inner.keys[i], this.charset);
+          inner.values[i] = function.apply(k, castUnsafe(inner.values[i]));
+        }
+      }
+    }
+
+    @Override
+    public void clear() {
+      inner.clear();
+    }
+
+    @Override
+    public Set<String> keySet() {
+      return new KeySet(this);
+    }
+
+    @Override
+    public Collection<V> values() {
+      return inner.values();
+    }
+
+    @Override
+    public Set<Entry<String, V>> entrySet() {
+      return new EntrySet<>(this);
+    }
+
+    /**
+     * Creates a shallow clone of this map, with separate key storage.
+     */
+    public StringWrapper clone() {
+      PocketMap<V> innerClone = inner.clone();
+      return new StringWrapper<>(innerClone, this.charset);
+    }
+
+    protected static class KeySet extends AbstractSet<String> {
+      private final StringWrapper<?> owner;
+      protected KeySet(final StringWrapper<?> owner) {
+        this.owner = owner;
+      }
+
+      public final int size() {
+        return owner.inner.size;
+      }
+      public final void clear() {
+        owner.clear();
+      }
+      public final Iterator<String> iterator() {
+        return new StringWrapperKeyIterator<>(owner.inner, owner.charset);
+      }
+      public final boolean contains(Object o) {
+        return owner.containsKey(o);
+      }
+      public final boolean remove(Object key) {
+        return owner.remove(key) != null;
+      }
+
+      public final void forEach(Consumer<? super String> action) {
+        if (action == null) {
+          throw new NullPointerException();
+        }
+        // int mc = modCount;
+        for (int src = 0; src < owner.inner.keys.length; src++) {
+          if ((owner.inner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
+            action.accept(owner.inner.keyStorage.loadAsString(owner.inner.keys[src], owner.charset));
+          }
+        }
+        // if (modCount != mc) {
+        //  throw new ConcurrentModificationException();
+        // }
+      }
+    }
+
+    protected static class EntrySet<V> extends AbstractSet<Map.Entry<String, V>> {
+      private final StringWrapper<V> owner;
+      protected EntrySet(final StringWrapper<V> owner) {
+        this.owner = owner;
+      }
+
+      public final int size() {
+        return owner.inner.size;
+      }
+      public final void clear() {
+        owner.clear();
+      }
+      public final Iterator<Map.Entry<String, V>> iterator() {
+        return new StringWrapperEntryIterator<>(owner.inner, owner.charset);
+      }
+
+      public final boolean contains(Object o) {
+        if (!(o instanceof Map.Entry<?, ?>)) {
+          return false;
+        }
+        Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+        Object key = e.getKey();
+        Object value = e.getValue();
+        if (!(key instanceof String)) {
+          return false;
+        }
+        byte[] keyContent = ((String) key).getBytes(owner.charset);
+        return owner.inner.containsEntry(keyContent, value);
+      }
+      public final boolean remove(Object o) {
+        if (o instanceof Map.Entry<?, ?>) {
+          Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+          return owner.remove(e.getKey(), e.getValue());
+        }
+        return false;
+      }
+      public final void forEach(Consumer<? super Map.Entry<String, V>> action) {
+        if (action == null) {
+          throw new NullPointerException();
+        }
+        // int mc = modCount;
+        for (int src = 0; src < owner.inner.keys.length; src++) {
+          if ((owner.inner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
+            action.accept(new StringWrapperNode<>(owner.inner, owner.charset, src));
+          }
+        }
+        // if (modCount != mc) {
+        //  throw new ConcurrentModificationException();
+        // }
+      }
+    }
+  }
+
+  /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
   private int insertionIndex(long[] keys, int hashUpper) {
     int h = hashUpper & (keys.length - 1);
+    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
-      h = (h + 1) & (keys.length - 1);
+      h = (h + distance) & (keys.length - 1);
+      distance++;
     }
     return h;
   }
 
   /**
-   * Attempts to find index whose stored key equals the given one, using a linear probe starting from
+   * Attempts to find index whose stored key equals the given one, using a quadratic probe starting from
    * hash(keyContent).
    *
    * Returns:
@@ -627,18 +937,21 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
    */
   private int readIndex(int hashUpper, int hashLower, byte[] keyContent) {
     int h = hashUpper & (this.keys.length - 1);
+    int distance = 1;
     int firstTombstone = -1;
     while ((this.keys[h] & ALIVE_H2_MASK) > 0) {
       if ((this.keys[h] & ALIVE_FLAG) == 0) {
         // Tombstone
         firstTombstone = firstTombstone < 0 ? h : firstTombstone;
-        h = (h + 1) & (this.keys.length - 1);
+        h = (h + distance) & (this.keys.length - 1);
+        distance++;
         continue;
       }
       if ((this.keys[h] & H2_MASK) == hashLower && this.keyStorage.equalsAt(this.keys[h], keyContent)) {
         return h;
       }
-      h = (h + 1) & (this.keys.length - 1);
+      h = (h + distance) & (this.keys.length - 1);
+      distance++;
     }
     if (firstTombstone >= 0) {
       return -firstTombstone - 1;
@@ -655,11 +968,13 @@ public class PocketMap<V> extends AbstractMap<String, V> implements Cloneable {
   private int rereadIndex(long keyRef) {
     int hash = this.keyStorage.hashAt(keyRef);
     int h = (hash >>> H2_BITS) & (keys.length - 1);
+    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
       if (keys[h] == keyRef) {
         return h;
       }
-      h = (h + 1) & (keys.length - 1);
+      h = (h + distance) & (keys.length - 1);
+      distance++;
     }
     return -1;
   }

@@ -1,5 +1,6 @@
 package dev.dylanburati.pocketmap;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractCollection;
 import java.util.AbstractMap;
@@ -28,7 +29,7 @@ import static dev.dylanburati.pocketmap.KeyStorage.*;
  * The map doesn't attempt to reclaim the buffer space occupied by deleted keys.
  * To do this manually, clone the map.
  */
-public class LongPocketMap extends AbstractMap<String, Long> implements Cloneable {
+public class LongPocketMap extends AbstractMap<byte[], Long> {
   private static final int DEFAULT_CAPACITY = 65536;
   private final Hasher hasher;
   private final KeyStorage keyStorage;
@@ -82,6 +83,16 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     this.tombstoneCount = 0;
   }
 
+  public static StringWrapper newUtf8() {
+    return new StringWrapper(new LongPocketMap(), StandardCharsets.UTF_8);
+  }
+  public static StringWrapper newUtf8(int initialCapacity) {
+    return new StringWrapper(new LongPocketMap(initialCapacity), StandardCharsets.UTF_8);
+  }
+  public static StringWrapper newUtf8(int initialCapacity, final Hasher hasher) {
+    return new StringWrapper(new LongPocketMap(initialCapacity, hasher), StandardCharsets.UTF_8);
+  }
+
   @Override
   public int size() {
     return this.size;
@@ -94,25 +105,15 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
 
   @Override
   public boolean containsKey(Object key) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return false;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    return this.readIndex(keyContent) >= 0;
+    return this.readIndex((byte[]) key) >= 0;
   }
 
-  private boolean containsEntry(Map.Entry<?, ?> e) {
-    Object key = e.getKey();
-    Object value = e.getValue();
-    if (!(key instanceof String)) {
-      return false;
-    }
-    if (!(value instanceof Long)) {
-      return false;
-    }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
-    return idx >= 0 && this.values[idx] == (Long) value;
+  private boolean containsEntry(byte[] key, Long value) {
+    int idx = this.readIndex(key);
+    return idx >= 0 && this.values[idx] == value;
   }
 
   @Override
@@ -135,11 +136,14 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
 
   @Override
   public Long getOrDefault(Object key, Long defaultValue) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return defaultValue;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    return this.getImpl((byte[]) key, defaultValue);
+  }
+
+  private Long getImpl(byte[] key, Long defaultValue) {
+    int idx = this.readIndex((byte[]) key);
     if (idx < 0) {
       return defaultValue;
     }
@@ -147,19 +151,18 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
   }
 
   @Override
-  public Long put(String key, Long value) {
+  public Long put(byte[] key, Long value) {
     return this.putImpl(key, value, true);
   }
 
   @Override
-  public Long putIfAbsent(String key, Long value) {
+  public Long putIfAbsent(byte[] key, Long value) {
     return this.putImpl(key, value, false);
   }
 
-  private Long putImpl(String key, Long value, boolean shouldReplace) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+  private Long putImpl(byte[] key, Long value, boolean shouldReplace) {
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       Long prev = this.values[idx];
       if (shouldReplace) {
@@ -167,14 +170,13 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
       }
       return prev;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return null;
   }
 
   @Override
-  public Long replace(String key, Long value) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+  public Long replace(byte[] key, Long value) {
+    int idx = this.readIndex(key);
     if (idx >= 0) {
       Long prev = this.values[idx];
       this.values[idx] = value;
@@ -184,9 +186,8 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
   }
 
   @Override
-  public boolean replace(String key, Long oldValue, Long newValue) {
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+  public boolean replace(byte[] key, Long oldValue, Long newValue) {
+    int idx = this.readIndex(key);
     if (idx >= 0 && this.values[idx] == (Long) oldValue) {
       this.values[idx] = newValue;
       return true;
@@ -196,11 +197,14 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
 
   @Override
   public Long remove(Object key) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return null;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
+    return this.removeImpl((byte[]) key);
+  }
+
+  private Long removeImpl(byte[] key) {
+    int idx = this.readIndex((byte[]) key);
     if (idx >= 0) {
       Long result = this.values[idx];
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
@@ -212,15 +216,18 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
 
   @Override
   public boolean remove(Object key, Object value) {
-    if (!(key instanceof String)) {
+    if (!(key instanceof byte[])) {
       return false;
     }
     if (!(value instanceof Long)) {
       return false;
     }
-    byte[] keyContent = ((String) key).getBytes(StandardCharsets.UTF_8);
-    int idx = this.readIndex(keyContent);
-    if (idx >= 0 && this.values[idx] == (Long) value) {
+    return this.removeImpl((byte[]) key, (Long) value);
+  }
+
+  private boolean removeImpl(byte[] key, Long value) {
+    int idx = this.readIndex(key);
+    if (idx >= 0 && this.values[idx] == value) {
       // removeByIndex condition upheld: readIndex only returns a valid index if (keys[idx] & ALIVE_FLAG) == ALIVE_FLAG
       this.removeByIndex(idx);
       return true;
@@ -229,25 +236,24 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
   }
 
   @Override
-  public Long computeIfAbsent(String key, Function<? super String, ? extends Long> mappingFunction) {
+  public Long computeIfAbsent(byte[] key, Function<? super byte[], ? extends Long> mappingFunction) {
     return this.computeImpl(key, (k, _v) -> mappingFunction.apply(k), true, false);
   }
 
   @Override
-  public Long computeIfPresent(String key, BiFunction<? super String, ? super Long, ? extends Long> remappingFunction) {
+  public Long computeIfPresent(byte[] key, BiFunction<? super byte[], ? super Long, ? extends Long> remappingFunction) {
     return this.computeImpl(key, remappingFunction, false, true);
   }
 
   @Override
-  public Long compute(String key, BiFunction<? super String, ? super Long, ? extends Long> remappingFunction) {
+  public Long compute(byte[] key, BiFunction<? super byte[], ? super Long, ? extends Long> remappingFunction) {
     return this.computeImpl(key, remappingFunction, true, true);
   }
 
-  private Long computeImpl(String key, BiFunction<? super String, ? super Long, ? extends Long> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
+  private Long computeImpl(byte[] key, BiFunction<? super byte[], ? super Long, ? extends Long> remappingFunction, boolean shouldInsert, boolean shouldReplace) {
     Objects.requireNonNull(remappingFunction);
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       Long result = null;
       if (shouldReplace) {
@@ -267,17 +273,16 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     if (value == null) {
       return null;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return value;
   }
 
   @Override
-  public Long merge(String key, Long value, BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
+  public Long merge(byte[] key, Long value, BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
     Objects.requireNonNull(remappingFunction);
     Objects.requireNonNull(value);
-    byte[] keyContent = key.getBytes(StandardCharsets.UTF_8);
-    int hash = this.hasher.hashBytes(keyContent);
-    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, keyContent);
+    int hash = this.hasher.hashBytes(key);
+    int idx = this.readIndex(hash >>> H2_BITS, hash & H2_MASK, key);
     if (idx >= 0) {
       Long result = remappingFunction.apply(this.values[idx], value);
       if (result != null) {
@@ -287,23 +292,16 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
       }
       return result;
     }
-    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, keyContent, value);
+    this.insertByIndex(-idx - 1, hash >>> H2_BITS, hash & H2_MASK, key, value);
     return value;
   }
 
   @Override
-  public void putAll(Map<? extends String, ? extends Long> m) {
-    for (Map.Entry<? extends String, ? extends Long> e : m.entrySet()) {
-      this.put(e.getKey(), e.getValue());
-    }
-  }
-
-  @Override
-  public void replaceAll(BiFunction<? super String, ? super Long, ? extends Long> function) {
+  public void replaceAll(BiFunction<? super byte[], ? super Long, ? extends Long> function) {
     Objects.requireNonNull(function);
     for (int i = 0; i < this.keys.length; i++) {
       if ((this.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
-        String k = this.keyStorage.loadAsString(this.keys[i], StandardCharsets.UTF_8);
+        byte[] k = this.keyStorage.load(this.keys[i]);
         this.values[i] = function.apply(k, this.values[i]);
       }
     }
@@ -318,7 +316,7 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
   }
 
   @Override
-  public Set<String> keySet() {
+  public Set<byte[]> keySet() {
     return new KeySet(this);
   }
 
@@ -328,12 +326,14 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
   }
 
   @Override
-  public Set<Entry<String, Long>> entrySet() {
+  public Set<Entry<byte[], Long>> entrySet() {
     return new EntrySet(this);
   }
 
-  @Override
-  protected Object clone() throws CloneNotSupportedException {
+  /**
+   * Creates a shallow clone of this map, with separate key storage.
+   */
+  public LongPocketMap clone() {
     // INVARIANT 1 upheld on the clone
     long[] keysClone = new long[this.keys.length];
     long[] valuesClone = Arrays.copyOf(this.values, this.values.length);
@@ -352,7 +352,7 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
   // start of section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  protected static class KeySet extends AbstractSet<String> {
+  protected static class KeySet extends AbstractSet<byte[]> {
     private final LongPocketMap owner;
     protected KeySet(final LongPocketMap owner) {
       this.owner = owner;
@@ -364,7 +364,7 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<String> iterator() {
+    public final Iterator<byte[]> iterator() {
       return new KeyIterator(owner);
     }
     public final boolean contains(Object o) {
@@ -374,14 +374,14 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
       return owner.remove(key) != null;
     }
 
-    public final void forEach(Consumer<? super String> action) {
+    public final void forEach(Consumer<? super byte[]> action) {
       if (action == null) {
         throw new NullPointerException();
       }
       // int mc = modCount;
       for (int src = 0; src < owner.keys.length; src++) {
         if ((owner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
-          action.accept(owner.keyStorage.loadAsString(owner.keys[src], StandardCharsets.UTF_8));
+          action.accept(owner.keyStorage.load(owner.keys[src]));
         }
       }
       // if (modCount != mc) {
@@ -425,13 +425,56 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     }
   }
 
-  protected static class Node implements Map.Entry<String, Long> {
-    private final LongPocketMap owner;
-    private final long keyRef;
+  protected static class Node extends NodeImpl implements Map.Entry<byte[], Long> {
+    protected Node(LongPocketMap owner, int index) {
+      super(owner, index);
+    }
+
+    @Override
+    public byte[] getKey() {
+      return this.getKeyAsBytes();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Map.Entry<?, ?>)) {
+        return false;
+      }
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
+    }
+  }
+
+  protected static class StringWrapperNode extends NodeImpl implements Map.Entry<String, Long> {
+    private final Charset charset;
+
+    protected StringWrapperNode(final LongPocketMap owner, final Charset charset, int index) {
+      super(owner, index);
+      this.charset = charset;
+    }
+
+    @Override
+    public String getKey() {
+      return this.getKeyAsString(this.charset);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof Map.Entry<?, ?>)) {
+        return false;
+      }
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
+    }
+  }
+
+  protected static class NodeImpl {
+    protected final LongPocketMap owner;
+    protected final long keyRef;
     private int index;
     private int rehashCount;
 
-    protected Node(LongPocketMap owner, int index) {
+    protected NodeImpl(LongPocketMap owner, int index) {
       this.owner = owner;
       this.keyRef = owner.keys[index];
       this.index = index;
@@ -450,18 +493,18 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
       return this.index;
     }
 
-    @Override
-    public String getKey() {
-      long keyRef = owner.keys[this.getIndex()];
-      return owner.keyStorage.loadAsString(keyRef, StandardCharsets.UTF_8);
+    protected byte[] getKeyAsBytes() {
+      return owner.keyStorage.load(this.keyRef);
     }
 
-    @Override
+    protected String getKeyAsString(Charset charset) {
+      return owner.keyStorage.loadAsString(this.keyRef, charset);
+    }
+
     public Long getValue() {
       return owner.values[this.getIndex()];
     }
 
-    @Override
     public Long setValue(Long value) {
       int index = this.getIndex();
       Long prev = owner.values[index];
@@ -470,21 +513,12 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof Map.Entry<?, ?>)) {
-        return false;
-      }
-      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
-      return Objects.equals(this.getKey(), e.getKey()) && Objects.equals(this.getValue(), e.getValue());
-    }
-
-    @Override
     public int hashCode() {
-      return this.getKey().hashCode() ^ this.getValue().hashCode();
+      return this.getKeyAsBytes().hashCode() ^ this.getValue().hashCode();
     }
   }
 
-  protected static class EntrySet extends AbstractSet<Map.Entry<String, Long>> {
+  protected static class EntrySet extends AbstractSet<Map.Entry<byte[], Long>> {
     private final LongPocketMap owner;
     protected EntrySet(final LongPocketMap owner) {
       this.owner = owner;
@@ -496,7 +530,7 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     public final void clear() {
       owner.clear();
     }
-    public final Iterator<Map.Entry<String, Long>> iterator() {
+    public final Iterator<Map.Entry<byte[], Long>> iterator() {
       return new EntryIterator(owner);
     }
 
@@ -504,7 +538,16 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
       if (!(o instanceof Map.Entry<?, ?>)) {
         return false;
       }
-      return owner.containsEntry((Map.Entry<?, ?>) o);
+      Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+      Object key = e.getKey();
+      Object value = e.getValue();
+      if (!(key instanceof byte[])) {
+        return false;
+      }
+      if (!(value instanceof Long)) {
+        return false;
+      }
+      return owner.containsEntry((byte[]) key, (Long) value);
     }
     public final boolean remove(Object o) {
       if (o instanceof Map.Entry<?, ?>) {
@@ -513,7 +556,7 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
       }
       return false;
     }
-    public final void forEach(Consumer<? super Map.Entry<String, Long>> action) {
+    public final void forEach(Consumer<? super Map.Entry<byte[], Long>> action) {
       if (action == null) {
         throw new NullPointerException();
       }
@@ -578,13 +621,26 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     }
   }
 
-  protected static class KeyIterator extends HashIterator implements Iterator<String> {
+  protected static class KeyIterator extends HashIterator implements Iterator<byte[]> {
     protected KeyIterator(final LongPocketMap owner) {
       super(owner);
     }
+    public final byte[] next() {
+      int idx = this.advance();
+      return owner.keyStorage.load(owner.keys[idx]);
+    }
+  }
+
+  protected static class StringWrapperKeyIterator extends HashIterator implements Iterator<String> {
+    private final Charset charset;
+
+    protected StringWrapperKeyIterator(final LongPocketMap owner, final Charset charset) {
+      super(owner);
+      this.charset = charset;
+    }
     public final String next() {
       int idx = this.advance();
-      return owner.keyStorage.loadAsString(owner.keys[idx], StandardCharsets.UTF_8);
+      return owner.keyStorage.loadAsString(owner.keys[idx], this.charset);
     }
   }
 
@@ -598,30 +654,290 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
     }
   }
 
-  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<String, Long>> {
+  protected static class EntryIterator extends HashIterator implements Iterator<Map.Entry<byte[], Long>> {
     protected EntryIterator(final LongPocketMap owner) {
       super(owner);
     }
-    public final Map.Entry<String, Long> next() {
+    public final Map.Entry<byte[], Long> next() {
       int idx = this.advance();
       return new Node(owner, idx);
+    }
+  }
+
+  protected static class StringWrapperEntryIterator extends HashIterator implements Iterator<Map.Entry<String, Long>> {
+    private final Charset charset;
+
+    protected StringWrapperEntryIterator(final LongPocketMap owner, final Charset charset) {
+      super(owner);
+      this.charset = charset;
+    }
+    public final Map.Entry<String, Long> next() {
+      int idx = this.advance();
+      return new StringWrapperNode(owner, this.charset, idx);
     }
   }
 
   // end section adapted from
   // https://github.com/apache/commons-collections/blob/master/src/main/java/org/apache/commons/collections4/map/AbstractHashedMap.java
 
-  /** Index of first empty/tombstone slot in linear probe starting from hash(keyContent) */
+  public static class StringWrapper extends AbstractMap<String, Long> {
+    protected final LongPocketMap inner;
+    protected final Charset charset;
+
+    protected StringWrapper(final LongPocketMap inner, final Charset charset) {
+      this.inner = inner;
+      this.charset = charset;
+    }
+
+    @Override
+    public int size() {
+      return inner.size;
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return inner.isEmpty();
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.readIndex(keyContent) >= 0;
+    }
+
+    @Override
+    public boolean containsValue(Object value) {
+      return inner.containsValue(value);
+    }
+
+    @Override
+    public Long get(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.getImpl(keyContent, null);
+    }
+
+    @Override
+    public Long getOrDefault(Object key, Long defaultValue) {
+      if (!(key instanceof String)) {
+        return defaultValue;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.getImpl(keyContent, defaultValue);
+    }
+
+    @Override
+    public Long put(String key, Long value) {
+      return inner.putImpl(key.getBytes(this.charset), value, true);
+    }
+
+    @Override
+    public Long putIfAbsent(String key, Long value) {
+      return inner.putImpl(key.getBytes(this.charset), value, false);
+    }
+
+    @Override
+    public Long replace(String key, Long value) {
+      return inner.replace(key.getBytes(this.charset), value);
+    }
+
+    @Override
+    public boolean replace(String key, Long oldValue, Long newValue) {
+      return inner.replace(key.getBytes(this.charset), oldValue, newValue);
+    }
+
+    @Override
+    public Long remove(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.removeImpl(keyContent);
+    }
+
+    @Override
+    public boolean remove(Object key, Object value) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      if (!(value instanceof Long)) {
+        return false;
+      }
+      byte[] keyContent = ((String) key).getBytes(this.charset);
+      return inner.removeImpl(keyContent, (Long) value);
+    }
+
+    @Override
+    public Long computeIfAbsent(String key, Function<? super String, ? extends Long> mappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, _v) -> mappingFunction.apply(key), true, false);
+    }
+
+    @Override
+    public Long computeIfPresent(String key, BiFunction<? super String, ? super Long, ? extends Long> remappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, v) -> remappingFunction.apply(key, v), false, true);
+    }
+
+    @Override
+    public Long compute(String key, BiFunction<? super String, ? super Long, ? extends Long> remappingFunction) {
+      return inner.computeImpl(key.getBytes(this.charset), (_k, v) -> remappingFunction.apply(key, v), true, true);
+    }
+
+    @Override
+    public Long merge(String key, Long value, BiFunction<? super Long, ? super Long, ? extends Long> remappingFunction) {
+      return inner.merge(key.getBytes(this.charset), value, remappingFunction);
+    }
+
+    @Override
+    public void replaceAll(BiFunction<? super String, ? super Long, ? extends Long> function) {
+      Objects.requireNonNull(function);
+      for (int i = 0; i < inner.keys.length; i++) {
+        if ((inner.keys[i] & ALIVE_FLAG) == ALIVE_FLAG) {
+          String k = inner.keyStorage.loadAsString(inner.keys[i], this.charset);
+          inner.values[i] = function.apply(k, inner.values[i]);
+        }
+      }
+    }
+
+    @Override
+    public void clear() {
+      inner.clear();
+    }
+
+    @Override
+    public Set<String> keySet() {
+      return new KeySet(this);
+    }
+
+    @Override
+    public Collection<Long> values() {
+      return inner.values();
+    }
+
+    @Override
+    public Set<Entry<String, Long>> entrySet() {
+      return new EntrySet(this);
+    }
+
+    /**
+     * Creates a shallow clone of this map, with separate key storage.
+     */
+    public StringWrapper clone() {
+      LongPocketMap innerClone = inner.clone();
+      return new StringWrapper(innerClone, this.charset);
+    }
+
+    protected static class KeySet extends AbstractSet<String> {
+      private final StringWrapper owner;
+      protected KeySet(final StringWrapper owner) {
+        this.owner = owner;
+      }
+
+      public final int size() {
+        return owner.inner.size;
+      }
+      public final void clear() {
+        owner.clear();
+      }
+      public final Iterator<String> iterator() {
+        return new StringWrapperKeyIterator(owner.inner, owner.charset);
+      }
+      public final boolean contains(Object o) {
+        return owner.containsKey(o);
+      }
+      public final boolean remove(Object key) {
+        return owner.remove(key) != null;
+      }
+
+      public final void forEach(Consumer<? super String> action) {
+        if (action == null) {
+          throw new NullPointerException();
+        }
+        // int mc = modCount;
+        for (int src = 0; src < owner.inner.keys.length; src++) {
+          if ((owner.inner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
+            action.accept(owner.inner.keyStorage.loadAsString(owner.inner.keys[src], owner.charset));
+          }
+        }
+        // if (modCount != mc) {
+        //  throw new ConcurrentModificationException();
+        // }
+      }
+    }
+
+    protected static class EntrySet extends AbstractSet<Map.Entry<String, Long>> {
+      private final StringWrapper owner;
+      protected EntrySet(final StringWrapper owner) {
+        this.owner = owner;
+      }
+
+      public final int size() {
+        return owner.inner.size;
+      }
+      public final void clear() {
+        owner.clear();
+      }
+      public final Iterator<Map.Entry<String, Long>> iterator() {
+        return new StringWrapperEntryIterator(owner.inner, owner.charset);
+      }
+
+      public final boolean contains(Object o) {
+        if (!(o instanceof Map.Entry<?, ?>)) {
+          return false;
+        }
+        Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+        Object key = e.getKey();
+        Object value = e.getValue();
+        if (!(key instanceof String)) {
+          return false;
+        }
+        if (!(value instanceof Long)) {
+          return false;
+        }
+        byte[] keyContent = ((String) key).getBytes(owner.charset);
+        return owner.inner.containsEntry(keyContent, (Long) value);
+      }
+      public final boolean remove(Object o) {
+        if (o instanceof Map.Entry<?, ?>) {
+          Map.Entry<?, ?> e = (Map.Entry<?, ?>) o;
+          return owner.remove(e.getKey(), e.getValue());
+        }
+        return false;
+      }
+      public final void forEach(Consumer<? super Map.Entry<String, Long>> action) {
+        if (action == null) {
+          throw new NullPointerException();
+        }
+        // int mc = modCount;
+        for (int src = 0; src < owner.inner.keys.length; src++) {
+          if ((owner.inner.keys[src] & ALIVE_FLAG) == ALIVE_FLAG) {
+            action.accept(new StringWrapperNode(owner.inner, owner.charset, src));
+          }
+        }
+        // if (modCount != mc) {
+        //  throw new ConcurrentModificationException();
+        // }
+      }
+    }
+  }
+
+  /** Index of first empty/tombstone slot in quadratic probe starting from hash(keyContent) */
   private int insertionIndex(long[] keys, int hashUpper) {
     int h = hashUpper & (keys.length - 1);
+    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
-      h = (h + 1) & (keys.length - 1);
+      h = (h + distance) & (keys.length - 1);
+      distance++;
     }
     return h;
   }
 
   /**
-   * Attempts to find index whose stored key equals the given one, using a linear probe starting from
+   * Attempts to find index whose stored key equals the given one, using a quadratic probe starting from
    * hash(keyContent).
    *
    * Returns:
@@ -632,18 +948,21 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
    */
   private int readIndex(int hashUpper, int hashLower, byte[] keyContent) {
     int h = hashUpper & (this.keys.length - 1);
+    int distance = 1;
     int firstTombstone = -1;
     while ((this.keys[h] & ALIVE_H2_MASK) > 0) {
       if ((this.keys[h] & ALIVE_FLAG) == 0) {
         // Tombstone
         firstTombstone = firstTombstone < 0 ? h : firstTombstone;
-        h = (h + 1) & (this.keys.length - 1);
+        h = (h + distance) & (this.keys.length - 1);
+        distance++;
         continue;
       }
       if ((this.keys[h] & H2_MASK) == hashLower && this.keyStorage.equalsAt(this.keys[h], keyContent)) {
         return h;
       }
-      h = (h + 1) & (this.keys.length - 1);
+      h = (h + distance) & (this.keys.length - 1);
+      distance++;
     }
     if (firstTombstone >= 0) {
       return -firstTombstone - 1;
@@ -660,11 +979,13 @@ public class LongPocketMap extends AbstractMap<String, Long> implements Cloneabl
   private int rereadIndex(long keyRef) {
     int hash = this.keyStorage.hashAt(keyRef);
     int h = (hash >>> H2_BITS) & (keys.length - 1);
+    int distance = 1;
     while ((keys[h] & ALIVE_FLAG) == ALIVE_FLAG) {
       if (keys[h] == keyRef) {
         return h;
       }
-      h = (h + 1) & (keys.length - 1);
+      h = (h + distance) & (keys.length - 1);
+      distance++;
     }
     return -1;
   }
