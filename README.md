@@ -7,7 +7,7 @@ This is accomplished mostly through an indirect key storage mechanism.
 
 ### Benchmarks
 
-Graphs: https://observablehq.com/@dylan-burati-ws/pocketmap-benchmarks
+Graphs: https://observablehq.com/@dylan-burati-ws/pocketmap-benchmarks \
 Methodology: https://github.com/dylanburati/tree/main/benchmarks
 
 ### Memory usage analysis
