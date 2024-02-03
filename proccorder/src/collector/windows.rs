@@ -1,5 +1,11 @@
-use std::mem::{size_of, MaybeUninit};
-use windows::{Win32::Foundation::*, Win32::System::ProcessStatus::*, Win32::System::Threading::*};
+use std::{
+    convert::TryInto,
+    mem::{size_of, MaybeUninit},
+};
+use windows::{
+    Win32::Foundation::*, Win32::System::Diagnostics::ToolHelp::*, Win32::System::ProcessStatus::*,
+    Win32::System::SystemInformation::*, Win32::System::Threading::*,
+};
 
 use super::types::Metrics;
 
@@ -19,10 +25,15 @@ use super::types::Metrics;
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-pub fn collect() -> Metrics {
+pub fn collect(pid: i32) -> Metrics {
     let mut metrics = Metrics::default();
     unsafe {
-        let h = GetCurrentProcess();
+        metrics.time_seconds = Some(filetime_to_unix_epoch_in_seconds(
+            GetSystemTimePreciseAsFileTime(),
+        ));
+        let Ok(h) = OpenProcess(PROCESS_QUERY_INFORMATION, false, pid.try_into().unwrap()) else {
+            return metrics;
+        };
         let (start_time_seconds, cpu_seconds_total) = {
             let mut creationtime = MaybeUninit::uninit();
             let mut _exittime = MaybeUninit::uninit();
@@ -46,7 +57,7 @@ pub fn collect() -> Metrics {
                     let utime = filetime_to_seconds(usertime.assume_init());
                     stime + utime
                 };
-                (Some(start_time_seconds as u64), Some(cpu_seconds_total))
+                (Some(start_time_seconds), Some(cpu_seconds_total))
             } else {
                 (None, None)
             }
@@ -89,8 +100,74 @@ pub fn collect() -> Metrics {
         };
         metrics.open_fds = open_fds;
         metrics.max_fds = Some(16 * 1024 * 1024); // Windows has a hard-coded max limit, not per-process.
+        if let Err(_) = CloseHandle(h) {
+            return metrics;
+        }
+
+        let Ok(hsnapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, pid.try_into().unwrap())
+        else {
+            return metrics;
+        };
+        let thread_cpu = {
+            let mut thread_cpu_acc = vec![];
+            let mut thread_entry = THREADENTRY32::default();
+            thread_entry.dwSize = std::mem::size_of::<THREADENTRY32>() as u32;
+            if Thread32First(hsnapshot, &mut thread_entry).is_ok() {
+                loop {
+                    let r = &thread_entry;
+                    if r.th32OwnerProcessID == (pid as u32) {
+                        let hthread_res =
+                            OpenThread(THREAD_QUERY_LIMITED_INFORMATION, false, r.th32ThreadID);
+                        if let Ok(hthread) = hthread_res {
+                            let thread_cpu = get_thread_cpu(hthread);
+                            if let Err(_) = CloseHandle(hthread) {
+                                break None;
+                            }
+                            if let Some(x) = thread_cpu {
+                                thread_cpu_acc.push((r.th32ThreadID as i32, x));
+                            } else {
+                                break None;
+                            }
+                        }
+                    }
+
+                    thread_entry.dwSize = std::mem::size_of::<THREADENTRY32>() as u32;
+                    if Thread32Next(hsnapshot, &mut thread_entry).is_err() {
+                        break Some(thread_cpu_acc);
+                    }
+                }
+            } else {
+                None
+            }
+        };
+        metrics.thread_cpu_seconds_total = thread_cpu;
+        let _ = CloseHandle(hsnapshot);
     }
     metrics
+}
+
+unsafe fn get_thread_cpu(h: HANDLE) -> Option<f64> {
+    let mut creationtime = MaybeUninit::uninit();
+    let mut _exittime = MaybeUninit::uninit();
+    let mut kerneltime = MaybeUninit::uninit();
+    let mut usertime = MaybeUninit::uninit();
+    let ret = GetThreadTimes(
+        h,
+        creationtime.as_mut_ptr(),
+        _exittime.as_mut_ptr(),
+        kerneltime.as_mut_ptr(),
+        usertime.as_mut_ptr(),
+    );
+    if ret.is_ok() {
+        let cpu_seconds_total = {
+            let stime = filetime_to_seconds(kerneltime.assume_init());
+            let utime = filetime_to_seconds(usertime.assume_init());
+            stime + utime
+        };
+        Some(cpu_seconds_total)
+    } else {
+        None
+    }
 }
 
 /// Convert FILETIME to seconds.

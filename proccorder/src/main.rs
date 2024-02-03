@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 use std::convert::TryInto;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::process::{Command, Stdio};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant};
@@ -14,10 +16,28 @@ mod collector;
 
 mod types;
 
+enum Output {
+    Stdout,
+    File(String),
+}
+
+impl Output {
+    fn writer(&self) -> std::io::Result<Box<dyn Write + Send>> {
+        match self {
+            Self::Stdout => Ok(Box::new(std::io::stdout())),
+            Self::File(p) => {
+                let f = OpenOptions::new().write(true).create_new(true).open(p)?;
+                Ok(Box::new(f))
+            }
+        }
+    }
+}
+
 pub fn main() -> anyhow::Result<()> {
     let mut options_done = false;
     let mut all_args = vec![];
     let mut freq = 500;
+    let mut output = Output::Stdout;
     for a in std::env::args().skip(1) {
         if !options_done {
             match a.strip_prefix("-") {
@@ -30,6 +50,9 @@ pub fn main() -> anyhow::Result<()> {
                         "freq" => {
                             freq = val.parse()?;
                             assert!(freq >= 10, "frequency can't be below 10 ms");
+                        }
+                        "o" => {
+                            output = Output::File(val.to_owned());
                         }
                         _ => bail!("valid options are '-freq=<millis>'; got {}", a),
                     }
@@ -54,14 +77,15 @@ pub fn main() -> anyhow::Result<()> {
         .spawn()?;
     let pid: i32 = child.id().try_into().unwrap();
     let (sender, receiver) = channel();
+    let mut wr = output.writer()?;
     let handle = std::thread::spawn(move || {
         loop {
             match receiver.recv_timeout(Duration::from_millis(freq)) {
                 Ok(_) => { return () },
                 Err(_) => {
                     let mets = collector::collect(pid);
-                    serde_json::to_writer(std::io::stdout(), &mets).unwrap();
-                    print!("\n")
+                    serde_json::to_writer(&mut wr, &mets).unwrap();
+                    wr.write(b"\n").unwrap();
                 },
             }
         }
