@@ -7,6 +7,20 @@ use super::types::Metrics;
 static TICKS_PER_SECOND: Lazy<f64> = Lazy::new(|| procfs::ticks_per_second() as f64);
 static BOOT_TIME_SECS: Lazy<Option<f64>> = Lazy::new(|| procfs::boot_time_secs().ok().map(|x| x as f64));
 
+pub fn first_child(pid: i32) -> Result<Option<i32>, ()> {
+    let proc = Process::new(pid).map_err(|_| ())?;
+    if let Ok(tasks) = proc.tasks() {
+        for res in tasks {
+            let Ok(task) = res else { continue };
+            let Ok(children) = task.children() else { continue };
+            if let Some(id) = children.first() {
+                return Ok(Some(*id as i32));
+            }
+        }
+    }
+    Ok(None)
+}
+
 pub fn collect(pid: i32) -> Metrics {
     let mut metrics = Metrics::default();
     if let Ok(proc) = Process::new(pid) {

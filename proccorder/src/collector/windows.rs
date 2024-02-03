@@ -9,6 +9,31 @@ use windows::{
 
 use super::types::Metrics;
 
+pub fn first_child(pid: i32) -> Result<Option<i32>, ()> {
+    let mut child_pid = None;
+    unsafe {
+        let hsnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, pid.try_into().unwrap())
+            .map_err(|_| ())?;
+        let mut process_entry = PROCESSENTRY32::default();
+        process_entry.dwSize = std::mem::size_of::<PROCESSENTRY32>() as u32;
+        if Process32First(hsnapshot, &mut process_entry).is_ok() {
+            loop {
+                let r = &process_entry;
+                if r.th32ParentProcessID == (pid as u32) {
+                    child_pid = Some(r.th32ProcessID as i32);
+                    break;
+                }
+
+                process_entry.dwSize = std::mem::size_of::<PROCESSENTRY32>() as u32;
+                if Process32Next(hsnapshot, &mut process_entry).is_err() {
+                    break;
+                }
+            }
+        }
+    }
+    Ok(child_pid)
+}
+
 /// Collect metrics.
 ///
 /// Refer: / https://github.com/prometheus/client_golang/blob/c7aa2a5b843527449adb99ad113fe14ed15e4eb0/prometheus/process_collector_windows.go#L81-L116
