@@ -34,3 +34,4 @@ target/
 .project
 
 **/resources/*.zst
+.ignored
